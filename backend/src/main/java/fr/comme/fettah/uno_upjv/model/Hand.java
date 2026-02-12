@@ -1,5 +1,7 @@
 package fr.comme.fettah.uno_upjv.model;
 
+import fr.comme.fettah.uno_upjv.model.enums.Color;
+import fr.comme.fettah.uno_upjv.model.enums.Value;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.Getter;
@@ -19,11 +21,13 @@ public class Hand {
 
   /**
    * Getter sécurisé pour éviter qu'on modifie la main.
+   *
    * @return une liste copie de la main.
    */
   public List<Card> getCards() {
     return new ArrayList<>(this.cards);
   }
+
   /**
    * Ajoute une carte dans la main.
    *
@@ -68,12 +72,13 @@ public class Hand {
   /**
    * Indique si la main contient une carte pouvant être jouée.
    *
-   * @param topCard Carte au sommet de la pile de défausse.
+   * @param activeColor Couleur demandée.
+   * @param activeValue Valeur demandée.
    * @return {@code true} si une carte est jouable, {@code false} sinon.
    */
-  public boolean hasPlayableCard(Card topCard) {
+  public boolean hasPlayableCard(Color activeColor, Value activeValue) {
     for (Card card : cards) {
-      if (card.isPlayable(topCard))
+      if (card.isPlayable(activeColor, activeValue))
         return true;
     }
 

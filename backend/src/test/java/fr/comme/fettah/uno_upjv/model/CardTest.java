@@ -16,10 +16,11 @@ public class CardTest {
   @Test
   @DisplayName("Carte doit être jouable si même couleur")
   void shouldBePlayableWhenSameColor() {
-    Card topCard = new Card(1, Color.RED, Value.ONE);
+    Color activeColor = Color.RED;
+    Value activeValue = Value.ONE;
     Card playedCard = new Card(2, Color.RED, Value.TWO);
 
-    boolean result = playedCard.isPlayable(topCard);
+    boolean result = playedCard.isPlayable(activeColor, activeValue);
 
     assertThat(result).isTrue();
   }
@@ -27,10 +28,11 @@ public class CardTest {
   @Test
   @DisplayName("Carte doit être jouable si même valeur")
   void shouldBePlayableWhenSameValue() {
-    Card topCard = new Card(1, Color.RED, Value.ONE);
+    Color activeColor = Color.RED;
+    Value activeValue = Value.ONE;
     Card playedCard = new Card(2, Color.BLUE, Value.ONE);
 
-    boolean result = playedCard.isPlayable(topCard);
+    boolean result = playedCard.isPlayable(activeColor, activeValue);
 
     assertThat(result).isTrue();
   }
@@ -38,17 +40,13 @@ public class CardTest {
   @Test
   @DisplayName("Un Joker doit toujours être jouable")
   void blackShouldAlwaysBePlayable() {
-    Card topCardRed = new Card(1, Color.RED, Value.ONE);
-    Card topCardGreen = new Card(2, Color.GREEN, Value.TWO);
-    Card topCardBlue = new Card(3, Color.BLUE, Value.THREE);
-    Card topCardYellow = new Card(4, Color.YELLOW, Value.FOUR);
 
     Card playedCard = new Card(5, Color.BLACK, Value.WILD);
 
-    boolean resultRed = playedCard.isPlayable(topCardRed);
-    boolean resultGreen = playedCard.isPlayable(topCardGreen);
-    boolean resultBlue = playedCard.isPlayable(topCardBlue);
-    boolean resultYellow = playedCard.isPlayable(topCardYellow);
+    boolean resultRed = playedCard.isPlayable(Color.RED, Value.ONE);
+    boolean resultGreen = playedCard.isPlayable(Color.GREEN, Value.TWO);
+    boolean resultBlue = playedCard.isPlayable(Color.BLUE, Value.THREE);
+    boolean resultYellow = playedCard.isPlayable(Color.YELLOW, Value.FOUR);
 
     assertThat(resultRed).isTrue();
     assertThat(resultGreen).isTrue();
@@ -60,10 +58,11 @@ public class CardTest {
   @Test
   @DisplayName("Carte ne doit pas être jouable car rien en commun")
   void shouldNotBePlayable() {
-    Card topCard = new Card(1, Color.RED, Value.SKIP);
+    Color activeColor = Color.RED;
+    Value activeValue = Value.SKIP;
     Card playedCard = new Card(2, Color.BLUE, Value.DRAW_TWO);
 
-    boolean result = playedCard.isPlayable(topCard);
+    boolean result = playedCard.isPlayable(activeColor, activeValue);
 
     assertThat(result).isFalse();
   }

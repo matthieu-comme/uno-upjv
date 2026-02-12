@@ -118,9 +118,8 @@ public class HandTest {
     hand.add(new Card(1, Color.RED, Value.TWO));
     hand.add(new Card(2, Color.BLUE, Value.SKIP));
     hand.add(new Card(3, Color.GREEN, Value.REVERSE));
-    Card topCard = new Card(4, Color.RED, Value.ONE);
 
-    boolean result = hand.hasPlayableCard(topCard);
+    boolean result = hand.hasPlayableCard(Color.RED, Value.ONE);
 
     assertThat(result).isTrue();
   }
@@ -133,9 +132,8 @@ public class HandTest {
     hand.add(new Card(1, Color.RED, Value.TWO));
     hand.add(new Card(2, Color.BLUE, Value.SKIP));
     hand.add(new Card(3, Color.GREEN, Value.REVERSE));
-    Card topCard = new Card(4, Color.YELLOW, Value.NINE);
 
-    boolean result = hand.hasPlayableCard(topCard);
+    boolean result = hand.hasPlayableCard(Color.YELLOW, Value.NINE);
 
     assertThat(result).isFalse();
   }
@@ -144,8 +142,7 @@ public class HandTest {
   @DisplayName("Aucune carte ne devrait être jouable (main vide)")
   void shouldNotHavePlayableCardWhenEmptyHand() {
     Hand hand = new Hand();
-    Card topCard = new Card(1, Color.RED, Value.ONE);
-    boolean result = hand.hasPlayableCard(topCard);
+    boolean result = hand.hasPlayableCard(Color.RED, Value.ONE);
 
     assertThat(result).isFalse();
   }

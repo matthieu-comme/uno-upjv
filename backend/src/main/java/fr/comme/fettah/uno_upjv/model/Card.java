@@ -23,14 +23,16 @@ public class Card {
    * <p>
    * La jouabilité vérifie la correspondance des couleurs, des valeurs, ou si la carte jouée est un Joker.
    * </p>
+   * <p>
    *
-   * @param topCard carte au sommet de la défausse.
+   * @param activeColor Couleur demandée.
+   * @param activeValue Valeur demandée.
    * @return {@code true} si la carte est jouable, {@code false} sinon.
    */
-  public boolean isPlayable(Card topCard) {
+  public boolean isPlayable(Color activeColor, Value activeValue) {
     if (this.color == Color.BLACK)
       return true;
-    return this.color == topCard.getColor() || this.value == topCard.getValue();
+    return this.color == activeColor || this.value == activeValue;
   }
 
   /**
