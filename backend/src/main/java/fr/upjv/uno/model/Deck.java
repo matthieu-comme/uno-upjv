@@ -1,6 +1,4 @@
-package fr.comme.fettah.uno_upjv.model;
-
-import lombok.*;
+package fr.upjv.uno.model;
 
 import java.util.ArrayList;
 import java.util.Collections;

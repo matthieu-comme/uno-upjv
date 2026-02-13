@@ -1,4 +1,4 @@
-package fr.comme.fettah.uno_upjv;
+package fr.upjv.uno;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

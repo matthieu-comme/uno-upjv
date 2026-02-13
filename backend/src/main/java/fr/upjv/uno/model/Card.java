@@ -1,7 +1,7 @@
-package fr.comme.fettah.uno_upjv.model;
+package fr.upjv.uno.model;
 
-import fr.comme.fettah.uno_upjv.model.enums.Color;
-import fr.comme.fettah.uno_upjv.model.enums.Value;
+import fr.upjv.uno.model.enums.Color;
+import fr.upjv.uno.model.enums.Value;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
