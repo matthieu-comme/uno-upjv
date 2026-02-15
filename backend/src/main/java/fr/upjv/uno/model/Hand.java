@@ -86,6 +86,24 @@ public class Hand {
   }
 
   /**
+   * Retourne une copie des cartes jouables de la main.
+   *
+   * @param activeColor Couleur demandée.
+   * @param activeValue Valeur demandée.
+   * @return liste de cartes jouables.
+   */
+  public List<Card> getPlayableCards(Color activeColor, Value activeValue) {
+    List<Card> playableCards = new ArrayList<>();
+
+    for (Card card : cards) {
+      if (card.isPlayable(activeColor, activeValue))
+        playableCards.add(card);
+    }
+
+    return playableCards;
+  }
+
+  /**
    * Cherche une carte de la main via son ID.
    *
    * @param cardId ID de la carte à chercher.

@@ -13,7 +13,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Permet de tester unitairement la classe Hand.
  */
 public class HandTest {
-
   @Test
   @DisplayName("La carte devrait être ajoutée")
   void shouldAddCard() {
@@ -212,5 +211,45 @@ public class HandTest {
     copy.clear();
 
     assertThat(hand.getCardCount()).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("Doit retourner les cartes de même couleur, même valeur et les Jokers")
+  void shouldReturnAllMatchingCards() {
+    Hand hand = new Hand();
+
+    Color activeColor = Color.RED;
+    Value activeValue = Value.FIVE;
+
+    Card matchingColor = new Card(1, Color.RED, Value.SKIP);
+    Card matchingValue = new Card(2, Color.BLUE, Value.FIVE);
+    Card wild = new Card(3, Color.BLACK, Value.WILD);
+    Card wild4 = new Card(4, Color.BLACK, Value.WILD_DRAW_FOUR);
+    Card wrong = new Card(5, Color.GREEN, Value.NINE);
+
+    hand.add(matchingColor);
+    hand.add(matchingValue);
+    hand.add(wild);
+    hand.add(wild4);
+    hand.add(wrong);
+
+    List<Card> result = hand.getPlayableCards(activeColor, activeValue);
+
+    assertThat(result).containsExactly(matchingColor, matchingValue, wild , wild4);
+    assertThat(result).doesNotContain(wrong);
+  }
+
+  @Test
+  @DisplayName("La liste de cartes jouables doit être vide")
+  void shouldReturnEmptyListWhenNoPlayableCard() {
+    Hand hand = new Hand();
+
+    hand.add(new Card(1, Color.RED, Value.TWO));
+    hand.add(new Card(2, Color.BLUE, Value.SKIP));
+    hand.add(new Card(3, Color.GREEN, Value.REVERSE));
+
+    List<Card> playableCards = hand.getPlayableCards(Color.YELLOW, Value.NINE);
+
+    assertThat(playableCards).isEmpty();
   }
 }
