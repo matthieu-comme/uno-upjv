@@ -29,4 +29,55 @@ public class Player {
     this.name = name;
     this.isConnected = true;
   }
+
+  /**
+   * Piocher : ajoute une carte à la main.
+   *
+   * @param card carte piochée.
+   */
+  public void drawCard(Card card) {
+    if (card == null)
+      throw new IllegalArgumentException("On ne peut pas piocher une carte nulle");
+
+    this.hand.add(card);
+  }
+
+  /**
+   * Jouer : supprime une carte de la main.
+   * Suppose que la validation des règles a déjà été faite.
+   *
+   * @param card carte jouée.
+   */
+  public void playCard(Card card) {
+    boolean removed = hand.remove(card);
+
+    if (!removed)
+      throw new IllegalStateException("Le joueur " + name + " essaie de jouer une carte qu'il n'a pas : " + card);
+  }
+
+  /**
+   * @return nombre de cartes
+   */
+  public int getHandSize() {
+    return hand.getSize();
+  }
+
+  /**
+   * Indique si le joueur est en position de Uno.
+   *
+   * @return {@code true} si Uno, {@code false} sinon.
+   */
+  public boolean hasUno() {
+    return getHandSize() == 1;
+  }
+
+  /**
+   * Indique si le joueur a la main vide.
+   *
+   * @return {@code true} si la main est vide, {@code false} sinon.
+   */
+  public boolean hasEmptyHand() {
+    return hand.isEmpty();
+  }
+
 }

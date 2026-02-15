@@ -51,8 +51,16 @@ public class Hand {
   /**
    * @return le nombre de cartes de la main.
    */
-  public int getCardCount() {
+  public int getSize() {
     return cards.size();
+  }
+
+  /**
+   * Indique si la main est vide.
+   * @return {@code true} si la main est vide, {@code false} sinon.
+   */
+  public boolean isEmpty() {
+    return cards.isEmpty();
   }
 
   /**

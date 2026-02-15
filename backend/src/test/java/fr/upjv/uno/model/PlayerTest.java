@@ -1,14 +1,29 @@
 package fr.upjv.uno.model;
 
+import fr.upjv.uno.model.enums.Color;
+import fr.upjv.uno.model.enums.Value;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Permet de tester unitairement la classe Player.
  */
 public class PlayerTest {
+  private Player player;
+
+  // Helper pour créer une carte bidon rapidement
+  private Card createDummyCard() {
+    return new Card(1, Color.RED, Value.FIVE);
+  }
+
+  @BeforeEach
+  void setup() {
+    player = new Player("1234", "Toto");
+  }
 
   @Test
   @DisplayName("Le constructeur doit initialiser correctement le joueur et sa main")
@@ -43,4 +58,77 @@ public class PlayerTest {
 
     assertThat(playerA).isNotEqualTo(playerB);
   }
+
+  @Test
+  @DisplayName("drawCard doit ajouter la carte dans la main")
+  void shouldDrawCardCorrectly() {
+    Card card = createDummyCard();
+
+    player.drawCard(card);
+
+    assertThat(player.getHandSize()).isEqualTo(1);
+    assertThat(player.hasEmptyHand()).isFalse();
+    assertThat(player.getHand().getCards()).containsExactly(card);
+  }
+
+  @Test
+  @DisplayName("drawCard doit refuser une carte null")
+  void shouldThrowExceptionWhenDrawingNull() {
+    assertThatThrownBy(() -> player.drawCard(null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("On ne peut pas piocher une carte nulle");
+  }
+
+  @Test
+  @DisplayName("playCard doit retirer la carte de la main")
+  void shouldPlayCardCorrectly() {
+    Card card = createDummyCard();
+
+    player.drawCard(card);
+
+    player.playCard(card);
+
+    assertThat(player.hasEmptyHand()).isTrue();
+    assertThat(player.getHandSize()).isZero();
+  }
+
+  @Test
+  @DisplayName("playCard doit lancer une exception si le joueur n'a pas la carte")
+  void shouldThrowExceptionWhenPlayingMissingCard() {
+    Card iDontHave = createDummyCard();
+
+    assertThatThrownBy(() -> player.playCard(iDontHave))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("essaie de jouer une carte qu'il n'a pas");
+  }
+
+  @Test
+  @DisplayName("État : main vide")
+  void shouldHandleEmptyHandState() {
+    assertThat(player.getHandSize()).isZero();
+    assertThat(player.hasEmptyHand()).isTrue();
+    assertThat(player.hasUno()).isFalse();
+  }
+
+  @Test
+  @DisplayName("État UNO : exactement 1 carte")
+  void shouldDetectUno() {
+    player.drawCard(createDummyCard());
+
+    assertThat(player.getHandSize()).isEqualTo(1);
+    assertThat(player.hasUno()).isTrue();
+    assertThat(player.hasEmptyHand()).isFalse();
+  }
+
+  @Test
+  @DisplayName("État normal : plusieurs cartes")
+  void shouldHandleMultipleCards() {
+    player.drawCard(createDummyCard());
+    player.drawCard(createDummyCard()); // 2 cartes
+
+    assertThat(player.getHandSize()).isEqualTo(2);
+    assertThat(player.hasUno()).isFalse();
+    assertThat(player.hasEmptyHand()).isFalse();
+  }
+
 }

@@ -2,6 +2,7 @@ package fr.upjv.uno.model;
 
 import fr.upjv.uno.model.enums.Color;
 import fr.upjv.uno.model.enums.Value;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,55 +14,74 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Permet de tester unitairement la classe Hand.
  */
 public class HandTest {
+  private Hand hand;
+
+  @BeforeEach
+  void setup() {
+    hand = new Hand();
+  }
+
   @Test
   @DisplayName("La carte devrait être ajoutée")
   void shouldAddCard() {
-    Hand hand = new Hand();
     Card card = new Card(1, Color.RED, Value.ONE);
 
-    boolean result = hand.add(card);
-    assertThat(result).isTrue();
+    hand.add(card);
+
+    assertThat(hand.getCards()).containsExactly(card);
+    assertThat(hand.getSize()).isEqualTo(1);
   }
 
   @Test
   @DisplayName("La carte devrait être supprimée")
   void shouldRemoveCardWhenPresent() {
-    Hand hand = new Hand();
     Card card = new Card(1, Color.RED, Value.ONE);
     hand.add(card);
 
     boolean result = hand.remove(card);
+
     assertThat(result).isTrue();
+    assertThat(hand.isEmpty()).isTrue();
   }
 
   @Test
   @DisplayName("La carte ne devrait pas être supprimée car elle n'est pas dans la main")
   void shouldNotRemoveCardWhenAbsent() {
-    Hand hand = new Hand();
     Card card = new Card(1, Color.RED, Value.ONE);
 
     boolean result = hand.remove(card);
+
     assertThat(result).isFalse();
+    assertThat(hand.isEmpty()).isTrue();
   }
 
   @Test
   @DisplayName("Le nombre de carte devrait être 0")
   void shouldCountEmptyHand() {
-    Hand hand = new Hand();
-    int result = hand.getCardCount();
+    assertThat(hand.getSize()).isZero();
+  }
 
-    assertThat(result).isZero();
+  @Test
+  @DisplayName("La main devrait etre vide")
+  void shouldBeEmpty() {
+    assertThat(hand.isEmpty()).isTrue();
+  }
+
+  @Test
+  @DisplayName("Le main ne devrait pas être vide")
+  void shouldNotBeEmpty() {
+    hand.add(new Card(1, Color.RED, Value.ONE));
+
+    assertThat(hand.isEmpty()).isFalse();
   }
 
   @Test
   @DisplayName("Le nombre de carte devrait être 99")
   void shouldCountLargeHand() {
-    Hand hand = new Hand();
-
     for (int i = 0; i < 99; i++)
       hand.add(new Card(i, Color.RED, Value.ONE));
 
-    int result = hand.getCardCount();
+    int result = hand.getSize();
 
     assertThat(result).isEqualTo(99);
   }
@@ -69,8 +89,6 @@ public class HandTest {
   @Test
   @DisplayName("Le score devrait être 0")
   void pointsShouldEqual0() {
-    Hand hand = new Hand();
-
     int result = hand.getPoints();
     assertThat(result).isEqualTo(0);
 
@@ -78,14 +96,11 @@ public class HandTest {
 
     result = hand.getPoints();
     assertThat(result).isEqualTo(0);
-
   }
 
   @Test
   @DisplayName("Le score devrait être 77")
   void pointsShouldEqual77() {
-    Hand hand = new Hand();
-
     hand.add(new Card(1, Color.BLACK, Value.WILD_DRAW_FOUR));
     hand.add(new Card(2, Color.RED, Value.SKIP));
     hand.add(new Card(3, Color.RED, Value.FIVE));
@@ -99,8 +114,6 @@ public class HandTest {
   @Test
   @DisplayName("Le score devrait être 500")
   void pointsShouldEqual500() {
-    Hand hand = new Hand();
-
     for (int i = 0; i < 100; i++)
       hand.add(new Card(i, Color.RED, Value.FIVE));
 
@@ -112,8 +125,6 @@ public class HandTest {
   @Test
   @DisplayName("Au moins une carte devrait être jouable")
   void shouldHavePlayableCard() {
-    Hand hand = new Hand();
-
     hand.add(new Card(1, Color.RED, Value.TWO));
     hand.add(new Card(2, Color.BLUE, Value.SKIP));
     hand.add(new Card(3, Color.GREEN, Value.REVERSE));
@@ -126,8 +137,6 @@ public class HandTest {
   @Test
   @DisplayName("Aucune carte ne devrait être jouable")
   void shouldNotHavePlayableCard() {
-    Hand hand = new Hand();
-
     hand.add(new Card(1, Color.RED, Value.TWO));
     hand.add(new Card(2, Color.BLUE, Value.SKIP));
     hand.add(new Card(3, Color.GREEN, Value.REVERSE));
@@ -140,24 +149,21 @@ public class HandTest {
   @Test
   @DisplayName("Aucune carte ne devrait être jouable (main vide)")
   void shouldNotHavePlayableCardWhenEmptyHand() {
-    Hand hand = new Hand();
     boolean result = hand.hasPlayableCard(Color.RED, Value.ONE);
 
     assertThat(result).isFalse();
   }
 
   @Test
-  @DisplayName("La main devrait être vide")
+  @DisplayName("La main devrait être vide après un clear")
   void shouldBeClearedHand() {
-    Hand hand = new Hand();
-
     hand.add(new Card(1, Color.RED, Value.TWO));
     hand.add(new Card(2, Color.BLUE, Value.SKIP));
     hand.add(new Card(3, Color.GREEN, Value.REVERSE));
 
     hand.clear();
 
-    int result = hand.getCardCount();
+    int result = hand.getSize();
 
     assertThat(result).isZero();
   }
@@ -165,8 +171,6 @@ public class HandTest {
   @Test
   @DisplayName("La carte devrait être trouvée")
   void cardShouldBeFound() {
-    Hand hand = new Hand();
-
     hand.add(new Card(1, Color.RED, Value.TWO));
     Card expectedCard = new Card(2, Color.BLUE, Value.SKIP);
     hand.add(expectedCard);
@@ -180,8 +184,6 @@ public class HandTest {
   @Test
   @DisplayName("La carte ne devrait pas être trouvée (elle n'est pas dans la main)")
   void cardShouldNotBeFound() {
-    Hand hand = new Hand();
-
     hand.add(new Card(1, Color.RED, Value.TWO));
     hand.add(new Card(2, Color.BLUE, Value.SKIP));
     hand.add(new Card(3, Color.GREEN, Value.REVERSE));
@@ -194,8 +196,6 @@ public class HandTest {
   @Test
   @DisplayName("La carte ne devrait pas être trouvée (main vide)")
   void cardShouldNotBeFoundWhenEmptyHand() {
-    Hand hand = new Hand();
-
     Card result = hand.getCardById(1);
 
     assertThat(result).isNull();
@@ -204,20 +204,17 @@ public class HandTest {
   @Test
   @DisplayName("La main doit rester intacte lorsque la copie est clear")
   void shouldNotBeClearedWhenCopyIs() {
-    Hand hand = new Hand();
     hand.add(new Card(1, Color.RED, Value.ONE));
 
     List<Card> copy = hand.getCards();
     copy.clear();
 
-    assertThat(hand.getCardCount()).isEqualTo(1);
+    assertThat(hand.getSize()).isEqualTo(1);
   }
 
   @Test
   @DisplayName("Doit retourner les cartes de même couleur, même valeur et les Jokers")
   void shouldReturnAllMatchingCards() {
-    Hand hand = new Hand();
-
     Color activeColor = Color.RED;
     Value activeValue = Value.FIVE;
 
@@ -235,15 +232,13 @@ public class HandTest {
 
     List<Card> result = hand.getPlayableCards(activeColor, activeValue);
 
-    assertThat(result).containsExactly(matchingColor, matchingValue, wild , wild4);
+    assertThat(result).containsExactly(matchingColor, matchingValue, wild, wild4);
     assertThat(result).doesNotContain(wrong);
   }
 
   @Test
   @DisplayName("La liste de cartes jouables doit être vide")
   void shouldReturnEmptyListWhenNoPlayableCard() {
-    Hand hand = new Hand();
-
     hand.add(new Card(1, Color.RED, Value.TWO));
     hand.add(new Card(2, Color.BLUE, Value.SKIP));
     hand.add(new Card(3, Color.GREEN, Value.REVERSE));
