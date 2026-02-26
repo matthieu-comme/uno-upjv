@@ -23,7 +23,6 @@ public class Card {
    * <p>
    * La jouabilité vérifie la correspondance des couleurs, des valeurs, ou si la carte jouée est un Joker.
    * </p>
-   * <p>
    *
    * @param activeColor Couleur demandée.
    * @param activeValue Valeur demandée.
@@ -35,10 +34,11 @@ public class Card {
     return this.color == activeColor || this.value == activeValue;
   }
 
-  /**
-   * @return
+  /** Indique la valeur en points d'une carte.
+   * @return nombre de points.
    */
   public int getPoints() {
     return value.getPoints();
   }
 }
+

@@ -5,11 +5,66 @@ package fr.upjv.uno.model.enums;
  * Le barème des points est centralisé ici.
  */
 public enum Value {
-  ZERO(0), ONE(1), TWO(2),
-  THREE(3), FOUR(4), FIVE(5),
-  SIX(6), SEVEN(7), EIGHT(8), NINE(9),
-  SKIP(20), REVERSE(20), DRAW_TWO(20),
-  WILD(50), WILD_DRAW_FOUR(50);
+  /**
+   * Valeur 0
+   */
+  ZERO(0),
+  /**
+   * Valeur 1
+   */
+  ONE(1),
+  /**
+   * Valeur 2
+   */
+  TWO(2),
+  /**
+   * Valeur 3
+   */
+  THREE(3),
+  /**
+   * Valeur 4
+   */
+  FOUR(4),
+  /**
+   * Valeur 5
+   */
+  FIVE(5),
+  /**
+   * Valeur 6
+   */
+  SIX(6),
+  /**
+   * Valeur 7
+   */
+  SEVEN(7),
+  /**
+   * Valeur 8
+   */
+  EIGHT(8),
+  /**
+   * Valeur 9
+   */
+  NINE(9),
+  /**
+   * Action "Passer le tour" vaut 20 points
+   */
+  SKIP(20),
+  /**
+   * Action "Inverser" vaut 20 points
+   */
+  REVERSE(20),
+  /**
+   * Action "+2" vaut 20 points
+   */
+  DRAW_TWO(20),
+  /**
+   * Action "Joker" vaut 50 points
+   */
+  WILD(50),
+  /**
+   * Action "+4" vaut 50 points
+   */
+  WILD_DRAW_FOUR(50);
 
   private final int points;
 
