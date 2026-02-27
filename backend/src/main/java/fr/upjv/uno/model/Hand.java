@@ -112,18 +112,12 @@ public class Hand {
   }
 
   /**
-   * Cherche une carte de la main via son ID.
    *
-   * @param cardId ID de la carte à chercher.
-   * @return la carte si elle est trouvée, nulle sinon.
+   * @param card Carte à chercher
+   * @return {@code true} si la main contient la carte, {@code false} sinon.
    */
-  public Card getCardById(int cardId) {
-    for (Card card : cards) {
-      if (cardId == card.getId())
-        return card;
-    }
-
-    return null;
+  public boolean contains(Card card) {
+    return cards.contains(card);
   }
 
   /**

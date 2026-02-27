@@ -130,5 +130,54 @@ public class PlayerTest {
     assertThat(player.hasUno()).isFalse();
     assertThat(player.hasEmptyHand()).isFalse();
   }
+  @Test
+  @DisplayName("La carte devrait être trouvée")
+  void cardShouldBeFound() {
+    player.drawCard(new Card(1, Color.RED, Value.TWO));
+    Card expectedCard = new Card(2, Color.BLUE, Value.SKIP);
+    player.drawCard(expectedCard);
+    player.drawCard(new Card(3, Color.GREEN, Value.REVERSE));
+
+    boolean result = player.hasThisCard(expectedCard);
+
+    assertThat(result).isTrue();
+  }
+
+  @Test
+  @DisplayName("Doit retourner vrai pour une nouvelle instance identique")
+  void shouldReturnTrueForEquivalentCardInstance() {
+    player.drawCard(new Card(1, Color.RED, Value.FIVE));
+
+    Card equivalentCard = new Card(1, Color.RED, Value.FIVE);
+
+    boolean result = player.hasThisCard((equivalentCard));
+
+    assertThat(result).isTrue();
+  }
+
+  @Test
+  @DisplayName("La carte ne devrait pas être trouvée (elle n'est pas dans la main)")
+  void cardShouldNotBeFound() {
+    player.drawCard(new Card(1, Color.RED, Value.TWO));
+    player.drawCard(new Card(2, Color.BLUE, Value.SKIP));
+    player.drawCard(new Card(3, Color.GREEN, Value.REVERSE));
+
+    Card absent = new Card(4, Color.BLACK, Value.WILD_DRAW_FOUR);
+
+    boolean result = player.hasThisCard(absent);
+
+    assertThat(result).isFalse();
+  }
+
+  @Test
+  @DisplayName("La carte ne devrait pas être trouvée (main vide)")
+  void cardShouldNotBeFoundWhenEmptyHand() {
+    Card card = new Card(1, Color.RED, Value.TWO);
+
+    boolean result = player.hasThisCard(card);
+
+    assertThat(result).isFalse();
+  }
+
 
 }

@@ -80,4 +80,14 @@ public class Player {
     return hand.isEmpty();
   }
 
+  /**
+   * Indique si le joueur possède la carte dans sa main.
+   *
+   * @param card Carte à chercher
+   * @return {@code true} si le joueur a la carte, {@code false} sinon.
+   */
+  public boolean hasThisCard(Card card) {
+    return hand.contains(card);
+  }
+
 }

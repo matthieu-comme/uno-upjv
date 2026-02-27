@@ -176,9 +176,19 @@ public class HandTest {
     hand.add(expectedCard);
     hand.add(new Card(3, Color.GREEN, Value.REVERSE));
 
-    Card result = hand.getCardById(2);
+    boolean result = hand.contains(expectedCard);
 
-    assertThat(result).isEqualTo(expectedCard);
+    assertThat(result).isTrue();
+  }
+
+  @Test
+  @DisplayName("Doit retourner vrai pour une nouvelle instance identique")
+  void shouldReturnTrueForEquivalentCardInstance() {
+    hand.add(new Card(1, Color.RED, Value.FIVE));
+
+    Card equivalentCard = new Card(1, Color.RED, Value.FIVE);
+
+    assertThat(hand.contains(equivalentCard)).isTrue();
   }
 
   @Test
@@ -188,17 +198,21 @@ public class HandTest {
     hand.add(new Card(2, Color.BLUE, Value.SKIP));
     hand.add(new Card(3, Color.GREEN, Value.REVERSE));
 
-    Card result = hand.getCardById(4);
+    Card absent = new Card(4, Color.BLACK, Value.WILD_DRAW_FOUR);
 
-    assertThat(result).isNull();
+    boolean result = hand.contains(absent);
+
+    assertThat(result).isFalse();
   }
 
   @Test
   @DisplayName("La carte ne devrait pas être trouvée (main vide)")
   void cardShouldNotBeFoundWhenEmptyHand() {
-    Card result = hand.getCardById(1);
+    Card card = new Card(1, Color.RED, Value.TWO);
 
-    assertThat(result).isNull();
+    boolean result = hand.contains(card);
+
+    assertThat(result).isFalse();
   }
 
   @Test
