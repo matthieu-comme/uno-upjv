@@ -6,27 +6,49 @@ import fr.upjv.uno.model.enums.Value;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.mockito.Mockito.*;
 
 /**
  * Permet de tester unitairement la classe Game.
  */
+@ExtendWith(MockitoExtension.class)
 public class GameTest {
   private Game game;
   private String id;
   private Deck deck;
+  private DiscardPile discardPile;
   private int maxPlayers;
+
+  @Mock
+  private Deck mockDeck;
+
+  @Mock
+  private DiscardPile mockDiscardPile;
 
   @BeforeEach
   void setup() {
     id = "1234";
     deck = new Deck();
+    discardPile = new DiscardPile();
     maxPlayers = 4;
-    game = new Game(id, deck, maxPlayers);
+    game = new Game(id, deck, discardPile, maxPlayers);
+  }
+
+  void setupMock() {
+    Mockito.reset(mockDeck);
+    Mockito.reset(mockDiscardPile);
+
+    game = new Game("1234", mockDeck, mockDiscardPile, 4);
   }
 
   private void addPlayers(int n) {
@@ -283,5 +305,55 @@ public class GameTest {
     int number = 4;
     addPlayers(number);
     assertThat(game.getPlayersNumber()).isEqualTo(number);
+  }
+
+  @Test
+  @DisplayName("Doit appeler l'extraction, le remplissage et le mélange")
+  void shouldExtractRefill() {
+    setupMock();
+    List<Card> mockExtractedCards = List.of(new Card(1, Color.RED, Value.FIVE));
+    when(mockDiscardPile.extractAllButTopCard()).thenReturn(mockExtractedCards);
+    when(mockDeck.refill(mockExtractedCards)).thenReturn(true);
+
+    game.recycleDiscardPileIntoDeck();
+
+    verify(mockDiscardPile).extractAllButTopCard();
+    verify(mockDeck).refill(mockExtractedCards);
+    verify(mockDeck).shuffle();
+
+  }
+
+  @Test
+  @DisplayName("Doit appeler l'extraction, échoue le remplissage et n'appelle pas le mélange)")
+  void shouldNotShuffleWhenRefillFails() {
+    setupMock();
+    List<Card> mockEmptyList = List.of();
+    when(mockDiscardPile.extractAllButTopCard()).thenReturn(mockEmptyList);
+    when(mockDeck.refill(mockEmptyList)).thenReturn(false);
+
+    game.recycleDiscardPileIntoDeck();
+
+    verify(mockDiscardPile).extractAllButTopCard();
+    verify(mockDeck).refill(mockEmptyList);
+    verify(mockDeck, never()).shuffle();
+  }
+
+  @Test
+  @DisplayName("Le deck devrait être vide")
+  void shouldReturnTrueWhenDeckIsEmpty() {
+    boolean result = game.isDeckEmpty();
+    assertThat(result).isTrue();
+  }
+
+  @Test
+  @DisplayName("Le deck ne devrait pas être vide")
+  void shouldReturnFalseWhenDeckIsNotEmpty() {
+    List<Card> cards = new ArrayList<>();
+    cards.add(new Card(1, Color.RED, Value.ONE));
+    game.getDeck().refill(cards);
+
+    boolean result = game.isDeckEmpty();
+
+    assertThat(result).isFalse();
   }
 }

@@ -39,18 +39,19 @@ public class Game {
   private Color activeColor;
 
   /**
-   * @param id         Identifiant unique de la partie.
-   * @param deck       Pioche à associer à la partie.
-   * @param maxPlayers Nombre de joueurs maximal.
+   * @param id          Identifiant unique de la partie.
+   * @param deck        Pioche à associer à la partie.
+   * @param discardPile Pile de défausse.
+   * @param maxPlayers  Nombre de joueurs maximal.
    */
-  public Game(String id, Deck deck, int maxPlayers) {
+  public Game(String id, Deck deck, DiscardPile discardPile, int maxPlayers) {
     this.id = id;
     this.status = GameStatus.WAITING_FOR_PLAYERS;
     this.direction = 1;
     this.players = new ArrayList<>();
     this.currentPlayerIndex = 0;
     this.deck = deck;
-    this.discardPile = new DiscardPile();
+    this.discardPile = discardPile;
     this.maxPlayers = maxPlayers;
   }
 
@@ -129,6 +130,15 @@ public class Game {
   }
 
   /**
+   * Recycle la défausse en extrayant les cartes, puis remplis le deck avec et le mélange.
+   */
+  public void recycleDiscardPileIntoDeck() {
+    List<Card> extractedCards = discardPile.extractAllButTopCard();
+    if (deck.refill(extractedCards))
+      deck.shuffle();
+  }
+
+  /**
    * Indique si le joueur actuel a la main vide.
    *
    * @return {@code true} s'il a gagné, {@code false} sinon.
@@ -149,6 +159,23 @@ public class Game {
    */
   public List<Player> getPlayers() {
     return new ArrayList<>(players);
+  }
+
+  /**
+   * Permet d'obtenir la carte visible au sommet de la pile.
+   *
+   * @return le sommet de la pile, {@code null} si défausse vide (ce qui ne devrait jamais arriver).
+   */
+  public Card getTopCard() {
+    return discardPile.getTopCard();
+  }
+
+  /**
+   * Indique si le deck est vide.
+   * @return {@code true} si le deck est vide, {@code false} sinon.
+   */
+  public boolean isDeckEmpty() {
+    return deck.isEmpty();
   }
 
 }

@@ -2,6 +2,8 @@ package fr.upjv.uno.model;
 
 import lombok.*;
 
+import java.util.List;
+
 /**
  * Représente un joueur.
  */
@@ -88,6 +90,15 @@ public class Player {
    */
   public boolean hasThisCard(Card card) {
     return hand.contains(card);
+  }
+
+  /**
+   * Getter sécurisé.
+   *
+   * @return une liste copie de la main.
+   */
+  public List<Card> getCards() {
+    return hand.getCards();
   }
 
 }

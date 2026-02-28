@@ -5,6 +5,7 @@ import fr.upjv.uno.model.Deck;
 import fr.upjv.uno.model.enums.Color;
 import fr.upjv.uno.model.enums.Value;
 import lombok.NoArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.List;
  * Permet de fabriquer des Deck prédéfinis.
  * Utile si nous voulons ajouter différentes règles nécessitant une autre composition de pioche.
  */
+@Component
 @NoArgsConstructor
 public class DeckFactory {
   /**

@@ -6,6 +6,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -177,6 +179,17 @@ public class PlayerTest {
     boolean result = player.hasThisCard(card);
 
     assertThat(result).isFalse();
+  }
+
+  @Test
+  @DisplayName("La main doit rester intacte lorsque la copie est clear")
+  void shouldNotBeClearedWhenCopyIs() {
+    player.drawCard(new Card(1, Color.RED, Value.ONE));
+
+    List<Card> copy = player.getCards();
+    copy.clear();
+
+    assertThat(player.getHandSize()).isEqualTo(1);
   }
 
 

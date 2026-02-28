@@ -30,7 +30,7 @@ public class DiscardPile {
   /**
    * Permet d'obtenir la carte visible au sommet de la pile.
    *
-   * @return le sommet de la pile.
+   * @return le sommet de la pile, {@code null} si défausse vide (ce qui ne devrait jamais arriver).
    */
   public Card getTopCard() {
     if (cards.isEmpty())
