@@ -87,6 +87,71 @@
   box-shadow: 0 0 0 2px rgba(255,255,255,0.22), 0 0 22px rgba(255,255,255,0.25);
 }
 
+.table-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 18px;
+}
+
+.table-shell {
+  position: relative;
+  width: min(980px, 96vw);
+  height: min(520px, 62vh);
+}
+
+/* ta table verte */
+.table {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  /* garde ton style actuel de table verte ici */
+}
+
+/* Sièges en dehors */
+.seatOutside {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, -50%);
+}
+
+.seatOutside .seatCard {
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.12);
+  padding: 10px 12px;
+  border-radius: 14px;
+  min-width: 150px;
+  text-align: center;
+}
+
+.seatOutside.top {
+  left: 50%;
+  top: -24px; /* hors table */
+}
+
+.seatOutside.left {
+  left: -24px; /* hors table */
+  top: 50%;
+}
+
+.seatOutside.right {
+  left: calc(100% + 24px);
+  top: 50%;
+}
+
+.seatOutside.bottom {
+  left: 50%;
+  top: calc(100% + 24px);
+}
+
+/* optionnel highlight joueur actif */
+.seatOutside.active .seatCard {
+  border-color: rgba(255,255,255,0.35);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+
 /* --- Bottom hand --- */
 .bottom-zone {
   padding: 14px 16px 18px;
@@ -121,4 +186,47 @@
 
 .btn:hover {
   background: rgba(255,255,255,0.16);
+}
+
+/* MAIN JOUEUR EN ÉVENTAIL */
+.hand.fan {
+  position: relative;
+  height: 240px;
+  width: min(860px, 96vw);
+  margin: 0 auto;
+  pointer-events: none;
+}
+
+.handCard {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+
+  transform: translate(var(--x), var(--y)) rotate(var(--r));
+  transform-origin: bottom center;
+
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+
+  pointer-events: auto;
+  transition: transform 180ms ease, filter 180ms ease;
+  will-change: transform;
+}
+
+.handCard:hover {
+  transform: translate(var(--x), calc(var(--y) - 26px)) rotate(var(--r)) scale(1.03);
+  filter: drop-shadow(0 16px 22px rgba(0,0,0,0.4));
+}
+
+.handCard:focus-visible {
+  outline: 3px solid rgba(255,255,255,0.65);
+  border-radius: 16px;
+}
+
+.flying-layer {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
 }
