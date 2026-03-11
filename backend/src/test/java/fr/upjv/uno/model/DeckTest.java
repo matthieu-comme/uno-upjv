@@ -47,7 +47,7 @@ public class DeckTest {
   @DisplayName("Le nombre de carte devrait être 0")
   void shouldCountEmptyDeck() {
     Deck deck = new Deck();
-    int result = deck.getCardCount();
+    int result = deck.getSize();
 
     assertThat(result).isZero();
   }
@@ -62,7 +62,7 @@ public class DeckTest {
     boolean result = deck.refill(refillCards);
 
     assertThat(result).isTrue();
-    assertThat(deck.getCardCount()).isEqualTo(20);
+    assertThat(deck.getSize()).isEqualTo(20);
     assertThat(deck.getCards()).containsExactlyElementsOf(refillCards);
   }
 
@@ -96,7 +96,7 @@ public class DeckTest {
   void shouldCountLargeDeck() {
     Deck deck = new Deck(createCardList(99));
 
-    int result = deck.getCardCount();
+    int result = deck.getSize();
 
     assertThat(result).isEqualTo(99);
   }
@@ -109,7 +109,7 @@ public class DeckTest {
     List<Card> copy = deck.getCards();
     copy.clear();
 
-    assertThat(deck.getCardCount()).isEqualTo(50);
+    assertThat(deck.getSize()).isEqualTo(50);
   }
 
   @Test
@@ -120,7 +120,7 @@ public class DeckTest {
 
     deck.shuffle();
 
-    assertThat(deck.getCardCount()).isEqualTo(copy.size());
+    assertThat(deck.getSize()).isEqualTo(copy.size());
     assertThat(deck.getCards()).containsExactlyInAnyOrderElementsOf(copy);
     assertThat(deck.getCards()).isNotEqualTo(copy);
   }
@@ -133,7 +133,7 @@ public class DeckTest {
 
     Card drawnCard = deck.draw();
 
-    assertThat(deck.getCardCount()).isEqualTo(3);
+    assertThat(deck.getSize()).isEqualTo(3);
     assertThat(drawnCard).isEqualTo(expectedCard);
   }
 
@@ -144,7 +144,7 @@ public class DeckTest {
 
     Card drawnCard = deck.draw();
 
-    assertThat(deck.getCardCount()).isEqualTo(0);
+    assertThat(deck.getSize()).isEqualTo(0);
     assertThat(drawnCard).isNull();
   }
 }

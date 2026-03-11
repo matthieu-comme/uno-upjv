@@ -39,7 +39,7 @@ public class Deck {
   /**
    * @return le nombre de cartes de la main.
    */
-  public int getCardCount() {
+  public int getSize() {
     return cards.size();
   }
 

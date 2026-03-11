@@ -178,4 +178,12 @@ public class Game {
     return deck.isEmpty();
   }
 
+  /**
+   * Ajoute la carte dans la défausse
+   * @param card carte à défausser
+   */
+  public void addToDiscardPile(Card card) {
+    discardPile.add(card);
+  }
+
 }
