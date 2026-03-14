@@ -1,18 +1,141 @@
 package fr.upjv.uno.controller;
 
+import fr.upjv.uno.dto.request.CreateGameRequest;
 import fr.upjv.uno.dto.request.HelloMessage;
+import fr.upjv.uno.dto.request.JoinGameRequest;
+import fr.upjv.uno.dto.request.PlayCardRequest;
+import fr.upjv.uno.dto.response.CardDTO;
+import fr.upjv.uno.dto.response.GameStateDTO;
 import fr.upjv.uno.dto.response.Greeting;
+import fr.upjv.uno.dto.response.PlayerDTO;
+import fr.upjv.uno.model.Card;
+import fr.upjv.uno.model.Game;
+import fr.upjv.uno.model.Player;
+import fr.upjv.uno.service.GameService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.HtmlUtils;
 
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+/**
+ * Contrôleur REST gérant les requêtes liées aux parties de Uno.
+ * <p>
+ * Création, join et le déroulement du jeu.
+ * Utilise {@link org.springframework.messaging.simp.SimpMessagingTemplate} pour diffuser
+ * l'état de la partie en temps réel via WebSockets de manière sécurisée (mains adverses masquées).
+ * </p>
+ */
+
+@RestController
+@RequestMapping("/api/games")
 @Controller
 public class GameController {
+  private final GameService gameService;
+  private final SimpMessagingTemplate messagingTemplate;
+
+  public GameController(GameService gameService, SimpMessagingTemplate messagingTemplate) {
+    this.gameService = gameService;
+    this.messagingTemplate = messagingTemplate;
+  }
 
   @MessageMapping("/hello")
   @SendTo("/topic/greetings")
-  public Greeting greeting(HelloMessage message) throws Exception {
+  public Greeting greeting(HelloMessage message) {
     return new Greeting("Hello, " + HtmlUtils.htmlEscape(message.getName()) + " !");
+  }
+
+  /**
+   * Crée une nouvelle partie avec les paramètres spécifiés.
+   *
+   * @param request Contient les paramètres de création : nombre de joueurs, mode de jeu.
+   * @return ResponseEntity contenant l'état initial de la partie (GameStateDTO).
+   */
+  @PostMapping("/create")
+  public ResponseEntity<GameStateDTO> createGame(@RequestBody CreateGameRequest request) {
+    Game game = gameService.createGame(request.getMaxPlayers(), request.getGameMode()); //
+    return ResponseEntity.ok(mapToGameStateDTO(game, null));
+  }
+
+  /**
+   * Ajoute un nouveau joueur à une partie existante via son identifiant.
+   * Diffuse automatiquement le nouvel état de la partie à tous les joueurs déjà connectés.
+   *
+   * @param gameId  Identifiant unique de la partie à rejoindre.
+   * @param request Objet contenant les informations du joueur (pseudonyme).
+   * @return ResponseEntity contenant l'état de la partie mis à jour pour le nouveau joueur.
+   */
+  @PostMapping("/{gameId}/join")
+  public ResponseEntity<GameStateDTO> joinGame(@PathVariable String gameId, @RequestBody JoinGameRequest request) {
+    Player newPlayer = new Player(UUID.randomUUID().toString(), request.getPlayerName()); //
+    Game game = gameService.joinGame(gameId, newPlayer); //
+
+    broadcastGameState(game);
+
+    return ResponseEntity.ok(mapToGameStateDTO(game, newPlayer.getId()));
+  }
+
+  @PostMapping("/{gameId}/play")
+  public ResponseEntity<Void> playCard(@PathVariable String gameId, @RequestBody PlayCardRequest request) {
+    gameService.playCard(gameId, request.getPlayerId(), request.getCardId(), request.getChosenColor()); //
+    Game game = gameService.getGame(gameId); //
+
+    broadcastGameState(game);
+
+    return ResponseEntity.ok().build();
+  }
+
+  private void broadcastGameState(Game game) {
+    for (Player player : game.getPlayers()) { //
+      messagingTemplate.convertAndSend(
+              "/topic/game/" + game.getId() + "/" + player.getId(),
+              mapToGameStateDTO(game, player.getId())
+      );
+    }
+  }
+
+  private GameStateDTO mapToGameStateDTO(Game game, String targetPlayerId) {
+    List<PlayerDTO> playerDTOs = game.getPlayers().stream() //
+            .map(p -> PlayerDTO.builder()
+                    .id(p.getId()) //
+                    .name(p.getName()) //
+                    .isConnected(p.isConnected()) //
+                    .handSize(p.getHandSize()) //
+                    .hasUno(p.hasUno()) //
+                    .build())
+            .collect(Collectors.toList());
+
+    List<CardDTO> myHand = null;
+    if (targetPlayerId != null) {
+      Player targetPlayer = game.findPlayerById(targetPlayerId); //
+      if (targetPlayer != null) {
+        myHand = targetPlayer.getCards().stream() //
+                .map(c -> new CardDTO(c.getId(), c.getColor(), c.getValue())) //
+                .collect(Collectors.toList());
+      }
+    }
+
+    CardDTO topCardDTO = null;
+    Card topCard = game.getTopCard(); //
+    if (topCard != null) {
+      topCardDTO = new CardDTO(topCard.getId(), topCard.getColor(), topCard.getValue()); //
+    }
+
+    return GameStateDTO.builder()
+            .gameId(game.getId()) //
+            .status(game.getStatus()) //
+            .direction(game.getDirection()) //
+            .activeColor(game.getActiveColor()) //
+            .topCard(topCardDTO)
+            .currentPlayerIndex(game.getCurrentPlayerIndex()) //
+            .players(playerDTOs)
+            .myHand(myHand)
+            .build();
   }
 }
