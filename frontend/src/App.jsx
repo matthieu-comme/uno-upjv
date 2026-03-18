@@ -12,7 +12,7 @@ export default function App() {
         <Route path="/lobby/:gameId" element={<LobbyPage />} />
         <Route path="/game/:gameId" element={<GamePage />} />
         <Route path="/end/:gameId" element={<EndPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} /> // redirige les routes inconnues vers la page d'accueil
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
