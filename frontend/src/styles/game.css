@@ -1,198 +1,220 @@
-/* --- Global game layout --- */
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+  user-select: none;
+}
+
+body {
+  overscroll-behavior: none; // pas d'effet de rebond sur mobile
+  touch-action: none; // pas de selection de texte
+}
+
+:root {
+  --topbar-height: 72px;
+  --hand-zone-height: 250px;
+
+  --board-max-width: 1500px;
+  --table-width: min(1120px, 84vw);
+  --table-height: min(620px, 60vh);
+
+  --seat-left-offset: 95px;
+  --seat-top-offset: 12px;
+}
+
+/* =========================
+   GLOBAL
+========================= */
+
+* {
+  box-sizing: border-box;
+}
+
 .game-root {
-  height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   color: white;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: var(--topbar-height) 1fr var(--hand-zone-height);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   background: radial-gradient(circle at 50% 30%, #2a2a2a 0%, #111 60%, #090909 100%);
   overflow: hidden;
 }
 
+/* =========================
+   TOP BAR
+========================= */
+
 .game-topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 14px 22px;
+  z-index: 5;
 }
 
 .game-title {
-  font-weight: 700;
+  margin: 0;
+  font-weight: 800;
   letter-spacing: 0.5px;
 }
 
-.game-status {
-  opacity: 0.9;
-  font-size: 14px;
-}
+/* =========================
+   BOARD AREA
+========================= */
 
-/* --- Table zone --- */
-.table-zone {
-  flex: 1;
+.table-container {
+  min-height: 0;
   display: grid;
   place-items: center;
-  padding: 10px;
+  padding: 8px 20px 4px;
 }
 
-.table {
-  width: min(980px, 92vw);
-  height: min(520px, 58vh);
-  border-radius: 26px;
-  background: radial-gradient(circle at 50% 40%, #0f7b41 0%, #0b5b31 45%, #064122 100%);
-  border: 2px solid rgba(255,255,255,0.12);
-  box-shadow: 0 0 0 8px rgba(0,0,0,0.35), 0 14px 60px rgba(0,0,0,0.55);
+.board-shell {
   position: relative;
+  width: min(var(--board-max-width), 100%);
+  height: 100%;
+  min-height: 420px;
+  display: grid;
+  place-items: center;
+}
+
+/* =========================
+   TABLE
+========================= */
+
+.table {
+  position: relative;
+  width: var(--table-width);
+  height: var(--table-height);
+  border-radius: 30px;
+  background: radial-gradient(circle at 50% 40%, #0f7b41 0%, #0b5b31 45%, #064122 100%);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 8px rgba(0, 0, 0, 0.35),
+    0 14px 60px rgba(0, 0, 0, 0.55);
   overflow: hidden;
 }
 
-.center-piles {
+/* Défausse au centre */
+.discard-center {
   position: absolute;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -45%);
-  display: flex;
-  gap: 22px;
-  align-items: center;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 2;
+}
+
+/* Pioche plus petite dans un coin */
+.draw-corner {
+  position: absolute;
+  right: 28px;
+  bottom: 24px;
+  text-align: center;
+  z-index: 2;
+}
+
+.draw-card-small {
+  transform: scale(0.74);
+  transform-origin: bottom right;
 }
 
 .pile-label {
-  text-align: center;
   margin-bottom: 8px;
-  font-size: 13px;
-  opacity: 0.9;
+  font-size: 12px;
+  opacity: 0.88;
 }
 
-/* --- Player seats --- */
+.pile-label.small {
+  font-size: 11px;
+  opacity: 0.78;
+}
+
+/* =========================
+   PLAYER SEATS
+========================= */
+
 .seat {
   position: absolute;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  z-index: 4;
+}
+
+.seat-card {
+  min-width: 150px;
   padding: 10px 12px;
-  border-radius: 16px;
-  background: rgba(0,0,0,0.28);
-  border: 1px solid rgba(255,255,255,0.12);
-  backdrop-filter: blur(6px);
-}
-
-.seat .name { font-weight: 800; }
-.seat .count { opacity: 0.85; font-size: 13px; }
-
-.seat.top { left: 50%; top: 14px; transform: translateX(-50%); }
-.seat.left { left: 14px; top: 50%; transform: translateY(-50%); }
-.seat.right { right: 14px; top: 50%; transform: translateY(-50%); }
-
-.seat.active {
-  box-shadow: 0 0 0 2px rgba(255,255,255,0.22), 0 0 22px rgba(255,255,255,0.25);
-}
-
-.table-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 18px;
-}
-
-.table-shell {
-  position: relative;
-  width: min(980px, 96vw);
-  height: min(520px, 62vh);
-}
-
-/* ta table verte */
-.table {
-  position: absolute;
-  inset: 0;
-  border-radius: 22px;
-  /* garde ton style actuel de table verte ici */
-}
-
-/* Sièges en dehors */
-.seatOutside {
-  position: absolute;
-  z-index: 5;
-  transform: translate(-50%, -50%);
-}
-
-.seatOutside .seatCard {
-  background: rgba(0,0,0,0.35);
+  text-align: center;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.12);
-  padding: 10px 12px;
-  border-radius: 14px;
-  min-width: 150px;
-  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
 }
 
-.seatOutside.top {
+.seat .name {
+  font-weight: 800;
+}
+
+.seat .count {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.seat.active .seat-card {
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Joueur du haut */
+.seat.top {
+  top: var(--seat-top-offset);
   left: 50%;
-  top: -24px; /* hors table */
+  transform: translateX(-50%);
 }
 
-.seatOutside.left {
-  left: -24px; /* hors table */
+/* Joueur gauche : ramené à l'intérieur du shell
+   pour éviter qu'il soit coupé */
+.seat.left {
+  left: var(--seat-left-offset);
   top: 50%;
+  transform: translateY(-50%);
 }
 
-.seatOutside.right {
-  left: calc(100% + 24px);
+/* Préparé pour un futur joueur à droite */
+.seat.right {
+  right: var(--seat-left-offset);
   top: 50%;
+  transform: translateY(-50%);
 }
 
-.seatOutside.bottom {
-  left: 50%;
-  top: calc(100% + 24px);
-}
+/* =========================
+   PLAYER HAND
+========================= */
 
-/* optionnel highlight joueur actif */
-.seatOutside.active .seatCard {
-  border-color: rgba(255,255,255,0.35);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-}
-
-/* --- Bottom hand --- */
-.bottom-zone {
-  padding: 14px 16px 18px;
-  background: linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0));
-}
-
-.hand-row {
+.player-hand-zone {
+  position: relative;
   display: flex;
   justify-content: center;
-  gap: 10px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  padding-bottom: 10px;
+  align-items: flex-end;
+  padding: 4px 18px 12px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0));
+  z-index: 3;
 }
 
-.actions-row {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.btn {
-  padding: 10px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.16);
-  background: rgba(255,255,255,0.10);
-  color: white;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.btn:hover {
-  background: rgba(255,255,255,0.16);
-}
-
-/* MAIN JOUEUR EN ÉVENTAIL */
+/* Main en éventail */
 .hand.fan {
   position: relative;
-  height: 240px;
-  width: min(860px, 96vw);
+  width: min(940px, 96vw);
+  height: 220px;
   margin: 0 auto;
   pointer-events: none;
 }
@@ -201,32 +223,233 @@
   position: absolute;
   left: 50%;
   bottom: 0;
-
   transform: translate(var(--x), var(--y)) rotate(var(--r));
   transform-origin: bottom center;
-
   background: transparent;
   border: 0;
   padding: 0;
   cursor: pointer;
-
   pointer-events: auto;
   transition: transform 180ms ease, filter 180ms ease;
   will-change: transform;
 }
 
 .handCard:hover {
-  transform: translate(var(--x), calc(var(--y) - 26px)) rotate(var(--r)) scale(1.03);
-  filter: drop-shadow(0 16px 22px rgba(0,0,0,0.4));
+  transform: translate(var(--x), calc(var(--y) - 24px)) rotate(var(--r)) scale(1.03);
+  filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.4));
 }
 
 .handCard:focus-visible {
-  outline: 3px solid rgba(255,255,255,0.65);
+  outline: 3px solid rgba(255, 255, 255, 0.65);
   border-radius: 16px;
 }
+
+/* =========================
+   FIXED CONTROLS
+========================= */
+
+.fixed-controls {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 20;
+}
+
+.btn {
+  min-width: 110px;
+  padding: 11px 15px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-2px);
+}
+
+/* =========================
+   FLYING CARD
+========================= */
 
 .flying-layer {
   position: fixed;
   z-index: 9999;
   pointer-events: none;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 1200px) {
+  :root {
+    --table-width: min(980px, 82vw);
+    --table-height: min(560px, 56vh);
+    --seat-left-offset: 56px;
+  }
+}
+
+@media (max-width: 900px) {
+  :root {
+    --topbar-height: 64px;
+    --hand-zone-height: 220px;
+    --table-width: min(92vw, 760px);
+    --table-height: min(460px, 48vh);
+  }
+
+  .game-topbar {
+    padding: 12px 16px;
+  }
+
+  .seat.left,
+  .seat.right {
+    top: 18px;
+    transform: translateX(-50%);
+  }
+
+  .seat.left {
+    left: 26%;
+  }
+
+  .seat.right {
+    left: 74%;
+    right: auto;
+  }
+
+  .draw-corner {
+    right: 18px;
+    bottom: 18px;
+  }
+
+  .draw-card-small {
+    transform: scale(0.68);
+  }
+
+  .seat-card {
+    min-width: 128px;
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 560px) {
+  :root {
+    --hand-zone-height: 190px;
+    --table-height: min(360px, 42vh);
+  }
+
+  .seat.left,
+  .seat.right {
+    display: none;
+  }
+
+  .seat.top {
+    top: 2px;
+  }
+
+  .hand.fan {
+    height: 180px;
+    width: 98vw;
+  }
+
+  .fixed-controls {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .btn {
+    min-width: 92px;
+    padding: 10px 12px;
+  }
+}
+
+/* =========================
+   OPPONENT HANDS
+========================= */
+
+.seat-card {
+  min-width: 150px;
+  padding: 12px 12px 10px;
+  text-align: center;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.opponent-cards {
+  position: relative;
+  width: 90px;
+  height: 54px;
+}
+
+.opponent-card-back {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 52px;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  transform-origin: center center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 35%),
+    linear-gradient(135deg, #2246c7, #102974 60%, #0a1848);
+}
+
+/* joueur du haut : éventail horizontal */
+.opponent-card-back.top {
+  transform:
+    translate(-50%, -50%)
+    translateX(calc((var(--i) - (var(--count) - 1) / 2) * 10px))
+    rotate(calc((var(--i) - (var(--count) - 1) / 2) * 4deg));
+}
+
+/* joueur gauche : petit éventail vertical */
+.opponent-card-back.left {
+  transform:
+    translate(-50%, -50%)
+    translateY(calc((var(--i) - (var(--count) - 1) / 2) * 8px))
+    rotate(90deg)
+    rotate(calc((var(--i) - (var(--count) - 1) / 2) * 4deg));
+}
+
+/* joueur droite si ajouté plus tard */
+.opponent-card-back.right {
+  transform:
+    translate(-50%, -50%)
+    translateY(calc((var(--i) - (var(--count) - 1) / 2) * 8px))
+    rotate(90deg)
+    rotate(calc((var(--i) - (var(--count) - 1) / 2) * 4deg));
+}
+
+.seat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.seat .name {
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.seat .count {
+  font-size: 12px;
+  opacity: 0.85;
 }
