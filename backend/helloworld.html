@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Client WebSocket Uno</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+<body>
+<h2>Test WebSocket - Uno</h2>
+
+<div>
+    <button onclick="connect()">1. Se connecter</button>
+    <button onclick="disconnect()">Déconnecter</button>
+</div>
+<br>
+<div>
+    <input type="text" id="name" placeholder="Votre nom">
+    <button onclick="sendName()">2. Envoyer au serveur</button>
+</div>
+
+<p>Réponse du serveur : <strong id="reponse" style="color: gray;">En attente de connexion...</strong></p>
+
+<script>
+    let stompClient = null;
+
+    function connect() {
+        // Assurez-vous que '/ws' correspond à l'endpoint défini dans votre WebSocketConfig
+        const socket = new SockJS('http://localhost:8080/ws-uno-upjv');
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function (frame) {
+            document.getElementById('reponse').innerText = "Connecté ! En attente d'un message...";
+            document.getElementById('reponse').style.color = "green";
+
+            // Écoute le canal défini par @SendTo("/topic/greetings") dans votre contrôleur
+            stompClient.subscribe('/topic/greetings', function (greeting) {
+                // Tente d'afficher le contenu JSON retourné par la classe Greeting
+                const data = JSON.parse(greeting.body);
+                // Modifiez "data.content" si l'attribut de votre classe Greeting s'appelle autrement (ex: data.message)
+                document.getElementById('reponse').innerText = data.content || greeting.body;
+            });
+        }, function(error) {
+            document.getElementById('reponse').innerText = "Erreur de connexion (voir console)";
+            document.getElementById('reponse').style.color = "red";
+            console.error(error);
+        });
+    }
+
+    function disconnect() {
+        if (stompClient !== null) {
+            stompClient.disconnect();
+        }
+        document.getElementById('reponse').innerText = "Déconnecté.";
+        document.getElementById('reponse').style.color = "gray";
+    }
+
+    function sendName() {
+        if (!stompClient) {
+            alert("Veuillez vous connecter d'abord !");
+            return;
+        }
+
+        const nom = document.getElementById('name').value;
+        // Envoi vers @MessageMapping("/hello").
+        // "/app" est le préfixe standard défini dans WebSocketConfig (setApplicationDestinationPrefixes).
+        // S'il n'y a pas de préfixe configuré, mettez uniquement "/hello".
+        stompClient.send("/app/hello", {}, JSON.stringify({'name': nom}));
+    }
+</script>
+</body>
+</html>

@@ -35,16 +35,29 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/games")
+@CrossOrigin(origins = "*")
 @Controller
 public class GameController {
   private final GameService gameService;
   private final SimpMessagingTemplate messagingTemplate;
 
+  /**
+   * Controller gérant les requêtes liées aux parties de Uno.
+   *
+   * @param gameService       service Uno.
+   * @param messagingTemplate template de message.
+   */
   public GameController(GameService gameService, SimpMessagingTemplate messagingTemplate) {
     this.gameService = gameService;
     this.messagingTemplate = messagingTemplate;
   }
 
+  /**
+   * Sert de Hello World.
+   *
+   * @param message message.
+   * @return Greeting.
+   */
   @MessageMapping("/hello")
   @SendTo("/topic/greetings")
   public Greeting greeting(HelloMessage message) {
@@ -59,7 +72,7 @@ public class GameController {
    */
   @PostMapping("/create")
   public ResponseEntity<GameStateDTO> createGame(@RequestBody CreateGameRequest request) {
-    Game game = gameService.createGame(request.getMaxPlayers(), request.getGameMode()); //
+    Game game = gameService.createGame(request.getMaxPlayers(), request.getGameMode());
     return ResponseEntity.ok(mapToGameStateDTO(game, null));
   }
 
@@ -73,26 +86,38 @@ public class GameController {
    */
   @PostMapping("/{gameId}/join")
   public ResponseEntity<GameStateDTO> joinGame(@PathVariable String gameId, @RequestBody JoinGameRequest request) {
-    Player newPlayer = new Player(UUID.randomUUID().toString(), request.getPlayerName()); //
-    Game game = gameService.joinGame(gameId, newPlayer); //
+    Player newPlayer = new Player(UUID.randomUUID().toString(), request.getPlayerName());
+    Game game = gameService.joinGame(gameId, newPlayer);
 
     broadcastGameState(game);
 
     return ResponseEntity.ok(mapToGameStateDTO(game, newPlayer.getId()));
   }
 
+  /**
+   * Traite l'action d'un joueur tentant de jouer une carte pendant son tour.
+   * Si l'action est valide, met à jour l'état du jeu et le diffuse à tous les joueurs.
+   *
+   * @param gameId  id de la partie.
+   * @param request action du joueur.
+   * @return OK si action valide, BadRequest sinon.
+   */
   @PostMapping("/{gameId}/play")
   public ResponseEntity<Void> playCard(@PathVariable String gameId, @RequestBody PlayCardRequest request) {
-    gameService.playCard(gameId, request.getPlayerId(), request.getCardId(), request.getChosenColor()); //
-    Game game = gameService.getGame(gameId); //
 
-    broadcastGameState(game);
+    try {
+      gameService.playCard(gameId, request.getPlayerId(), request.getCardId(), request.getChosenColor());
+      Game game = gameService.getGame(gameId);
+      broadcastGameState(game);
+      return ResponseEntity.ok().build();
 
-    return ResponseEntity.ok().build();
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().build();
+    }
   }
 
   private void broadcastGameState(Game game) {
-    for (Player player : game.getPlayers()) { //
+    for (Player player : game.getPlayers()) {
       messagingTemplate.convertAndSend(
               "/topic/game/" + game.getId() + "/" + player.getId(),
               mapToGameStateDTO(game, player.getId())
@@ -101,39 +126,39 @@ public class GameController {
   }
 
   private GameStateDTO mapToGameStateDTO(Game game, String targetPlayerId) {
-    List<PlayerDTO> playerDTOs = game.getPlayers().stream() //
+    List<PlayerDTO> playerDTOs = game.getPlayers().stream()
             .map(p -> PlayerDTO.builder()
-                    .id(p.getId()) //
-                    .name(p.getName()) //
-                    .isConnected(p.isConnected()) //
-                    .handSize(p.getHandSize()) //
-                    .hasUno(p.hasUno()) //
+                    .id(p.getId())
+                    .name(p.getName())
+                    .isConnected(p.isConnected())
+                    .handSize(p.getHandSize())
+                    .hasUno(p.hasUno())
                     .build())
             .collect(Collectors.toList());
 
     List<CardDTO> myHand = null;
     if (targetPlayerId != null) {
-      Player targetPlayer = game.findPlayerById(targetPlayerId); //
+      Player targetPlayer = game.findPlayerById(targetPlayerId);
       if (targetPlayer != null) {
-        myHand = targetPlayer.getCards().stream() //
-                .map(c -> new CardDTO(c.getId(), c.getColor(), c.getValue())) //
+        myHand = targetPlayer.getCards().stream()
+                .map(c -> new CardDTO(c.getId(), c.getColor(), c.getValue()))
                 .collect(Collectors.toList());
       }
     }
 
     CardDTO topCardDTO = null;
-    Card topCard = game.getTopCard(); //
+    Card topCard = game.getTopCard();
     if (topCard != null) {
-      topCardDTO = new CardDTO(topCard.getId(), topCard.getColor(), topCard.getValue()); //
+      topCardDTO = new CardDTO(topCard.getId(), topCard.getColor(), topCard.getValue());
     }
 
     return GameStateDTO.builder()
-            .gameId(game.getId()) //
-            .status(game.getStatus()) //
-            .direction(game.getDirection()) //
-            .activeColor(game.getActiveColor()) //
+            .gameId(game.getId())
+            .status(game.getStatus())
+            .direction(game.getDirection())
+            .activeColor(game.getActiveColor())
             .topCard(topCardDTO)
-            .currentPlayerIndex(game.getCurrentPlayerIndex()) //
+            .currentPlayerIndex(game.getCurrentPlayerIndex())
             .players(playerDTOs)
             .myHand(myHand)
             .build();
