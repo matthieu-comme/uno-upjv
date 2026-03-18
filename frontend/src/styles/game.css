@@ -14,8 +14,8 @@ body,
 }
 
 body {
-  overscroll-behavior: none; // pas d'effet de rebond sur mobile
-  touch-action: none; // pas de selection de texte
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
 :root {
@@ -208,35 +208,40 @@ body {
   padding: 4px 18px 12px;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0));
   z-index: 3;
+  overflow: hidden;
 }
 
-/* Main en éventail */
 .hand.fan {
   position: relative;
   width: min(940px, 96vw);
-  height: 220px;
+  height: 220px; /* Assurez-vous que la hauteur est définie pour l'espace de la main */
   margin: 0 auto;
   pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
 }
 
 .handCard {
-  position: absolute;
+  position: absolute; /* Position absolue pour garantir l'effet éventail */
   left: 50%;
   bottom: 0;
-  transform: translate(var(--x), var(--y)) rotate(var(--r));
+  transform: translate(var(--x), var(--y)) rotate(var(--r)); /* Positionnement dynamique des cartes */
   transform-origin: bottom center;
   background: transparent;
   border: 0;
   padding: 0;
   cursor: pointer;
   pointer-events: auto;
-  transition: transform 180ms ease, filter 180ms ease;
   will-change: transform;
 }
 
-.handCard:hover {
-  transform: translate(var(--x), calc(var(--y) - 24px)) rotate(var(--r)) scale(1.03);
-  filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.4));
+.motion-handCard {
+  filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.28));
+}
+
+.motion-handCard:hover {
+  filter: drop-shadow(0 16px 24px rgba(0, 0, 0, 0.4)); /* Ajout d'ombre au survol */
 }
 
 .handCard:focus-visible {
