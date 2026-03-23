@@ -209,7 +209,10 @@ public class GameService {
       default -> {
       }
     }
-
+    if (player.getCards().isEmpty()) {
+      //handleWin(game, player);
+      return;
+    }
     game.updateCurrentPlayerIndex();
   }
 
@@ -228,6 +231,7 @@ public class GameService {
     game.updateCurrentPlayerIndex();
   }
   // TODO: startGame, callUno, leaveGame, handleWin, addBot, calculateScores
+
   /**
    * Permet à un joueur d'annoncer "UNO" lorsqu'il s'apprête à n'avoir plus qu'une carte ou s'il n'en a qu'une.
    *
@@ -291,6 +295,7 @@ public class GameService {
 
     return score;
   }
+
   /**
    * Vérifie si c'est bien le tour du joueur spécifié.
    *

@@ -94,13 +94,11 @@ public class GameController {
    * Démarre la partie depuis le lobby.
    *
    * @param gameId  Identifiant de la partie.
-   * @param request Requête contenant l'identifiant du joueur (hôte).
    * @return OK si valide, BadRequest sinon.
    */
   @PostMapping("/{gameId}/start")
-  public ResponseEntity<Void> startGame(@PathVariable String gameId, @RequestBody StartGameRequest request) {
+  public ResponseEntity<Void> startGame(@PathVariable String gameId) {
     try {
-      // optionnel : vérifier si le joue a la permission
       gameService.startGame(gameId);
 
       Game game = gameService.getGame(gameId);
@@ -181,7 +179,7 @@ public class GameController {
       return ResponseEntity.badRequest().build();
     }
   }
-  
+
   private void broadcastGameState(Game game) {
     for (Player player : game.getPlayers()) {
       messagingTemplate.convertAndSend(

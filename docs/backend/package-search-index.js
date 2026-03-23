@@ -1,0 +1,1 @@
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"fr.upjv.uno"},{"l":"fr.upjv.uno.config"},{"l":"fr.upjv.uno.controller"},{"l":"fr.upjv.uno.dto.request"},{"l":"fr.upjv.uno.dto.response"},{"l":"fr.upjv.uno.factory"},{"l":"fr.upjv.uno.model"},{"l":"fr.upjv.uno.model.enums"},{"l":"fr.upjv.uno.service"},{"l":"fr.upjv.uno.util"}];updateSearchResults();

@@ -1,0 +1,10 @@
+fr.upjv.uno
+fr.upjv.uno.config
+fr.upjv.uno.controller
+fr.upjv.uno.dto.request
+fr.upjv.uno.dto.response
+fr.upjv.uno.factory
+fr.upjv.uno.model
+fr.upjv.uno.model.enums
+fr.upjv.uno.service
+fr.upjv.uno.util
