@@ -101,4 +101,11 @@ public class Player {
     return hand.getCards();
   }
 
+  /**
+   * Vide la main du joueur.
+   */
+  public void clearHand() {
+    this.hand.clear();
+  }
+
 }

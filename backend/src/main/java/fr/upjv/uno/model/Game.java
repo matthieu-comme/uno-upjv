@@ -29,9 +29,9 @@ public class Game {
 
   private int currentPlayerIndex;
 
-  private final Deck deck;
+  private Deck deck;
 
-  private final DiscardPile discardPile;
+  private DiscardPile discardPile;
 
   private final int maxPlayers;
 
@@ -172,6 +172,7 @@ public class Game {
 
   /**
    * Indique si le deck est vide.
+   *
    * @return {@code true} si le deck est vide, {@code false} sinon.
    */
   public boolean isDeckEmpty() {
@@ -180,10 +181,27 @@ public class Game {
 
   /**
    * Ajoute la carte dans la défausse
+   *
    * @param card carte à défausser
    */
   public void addToDiscardPile(Card card) {
     discardPile.add(card);
+  }
+
+  /**
+   * Réinitialise le jeu pour une nouvelle manche.
+   *
+   * @param newDeck Nouvelle pioche générée par la factory.
+   */
+  public void resetForNewRound(Deck newDeck) {
+    this.deck = newDeck;
+    this.discardPile = new DiscardPile();
+
+    if (direction == -1)
+      reverseDirection();
+
+    this.status = GameStatus.IN_PROGRESS;
+    this.currentPlayerIndex = 0;
   }
 
 }

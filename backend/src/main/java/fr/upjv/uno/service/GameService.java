@@ -89,7 +89,10 @@ public class GameService {
    */
   public void leaveGame(String gameId, String playerId) {
     Game game = getGame(gameId);
-    game.getPlayers().removeIf(p -> p.getId().equals(playerId));
+    Player player = game.findPlayerById(playerId);
+
+    if (player != null)
+      game.removePlayer(player);
 
     if (game.getPlayers().isEmpty()) {
       removeGame(gameId);
@@ -103,6 +106,8 @@ public class GameService {
    */
   public void startGame(String gameId) {
     Game game = getGame(gameId);
+
+    game.getDeck().shuffle();
 
     for (Player player : game.getPlayers()) {
       drawCards(gameId, player.getId(), 7);
@@ -119,6 +124,22 @@ public class GameService {
     game.setActiveColor(firstColor);
 
     game.setStatus(GameStatus.IN_PROGRESS);
+  }
+
+  /**
+   * Réinitialise la partie avec les joueurs actuels pour une nouvelle manche.
+   *
+   * @param gameId Identifiant de la partie.
+   */
+  public void restartGame(String gameId) {
+    Game game = getGame(gameId);
+
+    for (Player player : game.getPlayers()) {
+      player.clearHand();
+    }
+    game.resetForNewRound(deckFactory.createStandardDeck());
+
+    startGame(gameId);
   }
 
   /**
@@ -209,11 +230,43 @@ public class GameService {
       default -> {
       }
     }
-    if (player.getCards().isEmpty()) {
-      //handleWin(game, player);
+    if (player.hasEmptyHand()) {
+      handleWin(game, player);
       return;
     }
     game.updateCurrentPlayerIndex();
+  }
+
+  /**
+   * Clôture la partie, calcule les scores et désigne le vainqueur.
+   *
+   * @param game   La partie en cours.
+   * @param winner Le joueur qui a vidé sa main.
+   */
+  private void handleWin(Game game, Player winner) {
+    game.setStatus(GameStatus.FINISHED); // Adapte selon ton enum GameStatus
+
+    int pointsWon = calculateScores(game);
+
+    // TODO: stocker score dans Player pour les parties en plusieurs manches
+    // winner.addScore(pointsWon);
+  }
+
+  /**
+   * Additionne les points de toutes les cartes restantes dans les mains des adversaires.
+   *
+   * @param game La partie terminée.
+   * @return Le score total remporté par le vainqueur.
+   */
+  private int calculateScores(Game game) {
+    int total = 0;
+    for (Player p : game.getPlayers()) {
+      for (Card card : p.getCards()) {
+        total += card.getPoints();
+        card.getPoints();
+      }
+    }
+    return total;
   }
 
   /**
@@ -230,7 +283,6 @@ public class GameService {
     drawCards(gameId, playerId, 1);
     game.updateCurrentPlayerIndex();
   }
-  // TODO: startGame, callUno, leaveGame, handleWin, addBot, calculateScores
 
   /**
    * Permet à un joueur d'annoncer "UNO" lorsqu'il s'apprête à n'avoir plus qu'une carte ou s'il n'en a qu'une.
@@ -258,7 +310,7 @@ public class GameService {
     Game game = getGame(gameId);
     game.setStatus(GameStatus.FINISHED);
 
-    int totalScore = calculateScores(gameId);
+    int totalScore = calculateScores(game);
     // Logique supplémentaire pour assigner le score au gagnant
   }
 
@@ -274,26 +326,6 @@ public class GameService {
 
     // bot.setBot(true); // Nécessite d'ajouter un attribut booléen isBot dans la classe Player
     game.addPlayer(bot);
-  }
-
-  /**
-   * Calcule le score de fin de manche en additionnant la valeur des cartes restantes dans les mains des adversaires.
-   *
-   * @param gameId Identifiant de la partie.
-   * @return Le score calculé.
-   */
-  public int calculateScores(String gameId) {
-    Game game = getGame(gameId);
-    int score = 0;
-
-    for (Player player : game.getPlayers()) {
-      for (Card card : player.getCards()) {
-        // Nécessite une méthode dans Card ou Value pour obtenir les points (ex: 20 pour un +2, 50 pour un Joker)
-        // score += card.getValue().getScore();
-      }
-    }
-
-    return score;
   }
 
   /**

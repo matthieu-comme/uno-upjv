@@ -93,13 +93,33 @@ public class GameController {
   /**
    * Démarre la partie depuis le lobby.
    *
-   * @param gameId  Identifiant de la partie.
+   * @param gameId Identifiant de la partie.
    * @return OK si valide, BadRequest sinon.
    */
   @PostMapping("/{gameId}/start")
   public ResponseEntity<Void> startGame(@PathVariable String gameId) {
     try {
       gameService.startGame(gameId);
+
+      Game game = gameService.getGame(gameId);
+      broadcastGameState(game);
+
+      return ResponseEntity.ok().build();
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().build();
+    }
+  }
+
+  /**
+   * Réinitialise la partie avec les joueurs actuels pour une nouvelle manche.
+   *
+   * @param gameId Identifiant de la partie terminée.
+   * @return OK si valide, BadRequest sinon.
+   */
+  @PostMapping("/{gameId}/restart")
+  public ResponseEntity<Void> restartGame(@PathVariable String gameId) {
+    try {
+      gameService.restartGame(gameId);
 
       Game game = gameService.getGame(gameId);
       broadcastGameState(game);
@@ -123,11 +143,10 @@ public class GameController {
       gameService.leaveGame(gameId, request.getPlayerId());
 
       try {
-        // Tente de récupérer la partie pour informer les autres joueurs
         Game game = gameService.getGame(gameId);
         broadcastGameState(game);
       } catch (IllegalArgumentException e) {
-        // La partie a été supprimée car le dernier joueur est parti (géré silencieusement)
+        // La partie a été delete car le dernier joueur est parti.
       }
 
       return ResponseEntity.ok().build();
