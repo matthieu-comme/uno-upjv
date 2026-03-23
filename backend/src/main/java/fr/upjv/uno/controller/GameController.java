@@ -1,9 +1,6 @@
 package fr.upjv.uno.controller;
 
-import fr.upjv.uno.dto.request.CreateGameRequest;
-import fr.upjv.uno.dto.request.HelloMessage;
-import fr.upjv.uno.dto.request.JoinGameRequest;
-import fr.upjv.uno.dto.request.PlayCardRequest;
+import fr.upjv.uno.dto.request.*;
 import fr.upjv.uno.dto.response.CardDTO;
 import fr.upjv.uno.dto.response.GameStateDTO;
 import fr.upjv.uno.dto.response.Greeting;
@@ -92,6 +89,54 @@ public class GameController {
     broadcastGameState(game);
 
     return ResponseEntity.ok(mapToGameStateDTO(game, newPlayer.getId()));
+  }
+
+  /**
+   * Démarre la partie depuis le lobby.
+   *
+   * @param gameId  Identifiant de la partie.
+   * @param request Requête contenant l'identifiant du joueur (hôte).
+   * @return OK si valide, BadRequest sinon.
+   */
+  @PostMapping("/{gameId}/start")
+  public ResponseEntity<Void> startGame(@PathVariable String gameId, @RequestBody StartGameRequest request) {
+    try {
+      // optionnel : vérifier si le joue a la permission
+      gameService.startGame(gameId);
+
+      Game game = gameService.getGame(gameId);
+      broadcastGameState(game);
+
+      return ResponseEntity.ok().build();
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().build();
+    }
+  }
+
+  /**
+   * Retire un joueur de la partie ou du lobby.
+   *
+   * @param gameId  Identifiant de la partie.
+   * @param request Requête contenant l'identifiant du joueur qui quitte.
+   * @return OK si valide, BadRequest sinon.
+   */
+  @PostMapping("/{gameId}/leave")
+  public ResponseEntity<Void> leaveGame(@PathVariable String gameId, @RequestBody LeaveGameRequest request) {
+    try {
+      gameService.leaveGame(gameId, request.getPlayerId());
+
+      try {
+        // Tente de récupérer la partie pour informer les autres joueurs
+        Game game = gameService.getGame(gameId);
+        broadcastGameState(game);
+      } catch (IllegalArgumentException e) {
+        // La partie a été supprimée car le dernier joueur est parti (géré silencieusement)
+      }
+
+      return ResponseEntity.ok().build();
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().build();
+    }
   }
 
   /**

@@ -3,6 +3,7 @@ package fr.upjv.uno.service;
 import fr.upjv.uno.factory.DeckFactory;
 import fr.upjv.uno.model.*;
 import fr.upjv.uno.model.enums.Color;
+import fr.upjv.uno.model.enums.GameStatus;
 import fr.upjv.uno.util.GameCodeGenerator;
 import org.springframework.stereotype.Component;
 
@@ -78,6 +79,46 @@ public class GameService {
     Game game = getGame(gameId);
     game.addPlayer(player);
     return game;
+  }
+
+  /**
+   * Fait quitter un joueur de la partie. Si la partie devient vide, elle est supprimée.
+   *
+   * @param gameId   Identifiant de la partie.
+   * @param playerId Identifiant du joueur qui quitte.
+   */
+  public void leaveGame(String gameId, String playerId) {
+    Game game = getGame(gameId);
+    game.getPlayers().removeIf(p -> p.getId().equals(playerId));
+
+    if (game.getPlayers().isEmpty()) {
+      removeGame(gameId);
+    }
+  }
+
+  /**
+   * Démarre la partie, distribue 7 cartes à chaque joueur et initialise la carte de départ sur la défausse.
+   *
+   * @param gameId Identifiant de la partie.
+   */
+  public void startGame(String gameId) {
+    Game game = getGame(gameId);
+
+    for (Player player : game.getPlayers()) {
+      drawCards(gameId, player.getId(), 7);
+    }
+
+    Card firstCard = game.getDeck().draw();
+    game.addToDiscardPile(firstCard);
+    Color firstColor = firstCard.getColor();
+
+    // je décide que ce sera rouge si la première carte est noire
+    if (firstColor == Color.BLACK) {
+      firstColor = Color.RED;
+    }
+    game.setActiveColor(firstColor);
+
+    game.setStatus(GameStatus.IN_PROGRESS);
   }
 
   /**
@@ -172,4 +213,67 @@ public class GameService {
     game.updateCurrentPlayerIndex();
   }
   // TODO: startGame, callUno, leaveGame, handleWin, addBot, calculateScores
+  /**
+   * Permet à un joueur d'annoncer "UNO" lorsqu'il s'apprête à n'avoir plus qu'une carte ou s'il n'en a qu'une.
+   *
+   * @param gameId   Identifiant de la partie.
+   * @param playerId Identifiant du joueur.
+   */
+  public void callUno(String gameId, String playerId) {
+    Game game = getGame(gameId);
+    Player player = game.findPlayerById(playerId);
+
+    if (player != null && player.getCards().size() <= 2) {
+      return; //player.setHasUno(true);
+    }
+  }
+
+
+  /**
+   * Gère la fin de partie déclenchée par la victoire d'un joueur.
+   *
+   * @param gameId   Identifiant de la partie.
+   * @param playerId Identifiant du joueur gagnant.
+   */
+  public void handleWin(String gameId, String playerId) {
+    Game game = getGame(gameId);
+    game.setStatus(GameStatus.FINISHED);
+
+    int totalScore = calculateScores(gameId);
+    // Logique supplémentaire pour assigner le score au gagnant
+  }
+
+  /**
+   * Ajoute un joueur contrôlé par l'ordinateur à la partie.
+   *
+   * @param gameId Identifiant de la partie.
+   */
+  public void addBot(String gameId) {
+    Game game = getGame(gameId);
+    String botId = java.util.UUID.randomUUID().toString();
+    Player bot = new Player(botId, "Bot-" + botId.substring(0, 4));
+
+    // bot.setBot(true); // Nécessite d'ajouter un attribut booléen isBot dans la classe Player
+    game.addPlayer(bot);
+  }
+
+  /**
+   * Calcule le score de fin de manche en additionnant la valeur des cartes restantes dans les mains des adversaires.
+   *
+   * @param gameId Identifiant de la partie.
+   * @return Le score calculé.
+   */
+  public int calculateScores(String gameId) {
+    Game game = getGame(gameId);
+    int score = 0;
+
+    for (Player player : game.getPlayers()) {
+      for (Card card : player.getCards()) {
+        // Nécessite une méthode dans Card ou Value pour obtenir les points (ex: 20 pour un +2, 50 pour un Joker)
+        // score += card.getValue().getScore();
+      }
+    }
+
+    return score;
+  }
 }
