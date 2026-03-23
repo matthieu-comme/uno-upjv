@@ -25,7 +25,7 @@ export default function Hand({ cards = [], onPlayCard }) {
             style={{
               "--x": `${x}px`,
               "--y": `${y}px`,
-              "--r": isHovered ? "0deg" : `${angle}deg`,
+              "--r": `${angle}deg`,
               zIndex: isHovered ? 200 : i,
             }}
             onMouseEnter={() => setHoveredIdx(i)}

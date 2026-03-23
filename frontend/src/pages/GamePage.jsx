@@ -100,7 +100,26 @@ export default function GamePage() {
     connectWebSocket(
       gameId,
       playerId,
-      (state) => { setGameState(normalizeState(state)); setWsStatus("connected"); },
+      (state) => {
+        setGameState(normalizeState(state));
+        setWsStatus("connected");
+
+        // Fin de partie : status FINISHED ou un joueur a 0 carte (win non détecté côté back)
+        if (state.status === "FINISHED" || (state.status === "IN_PROGRESS" && state.players?.some(p => p.handSize === 0))) {
+          disconnectWebSocket();
+          const w = state.players?.find(p => p.handSize === 0);
+          navigate(`/end/${gameId}`, {
+            state: {
+              winner:     w?.name ?? "Inconnu",
+              winnerId:   w?.id,
+              players:    state.players,
+              playerId,
+              playerName: navState?.playerName,
+              gameId,
+            },
+          });
+        }
+      },
       () => setWsStatus("error")
     );
     return () => disconnectWebSocket();
@@ -118,14 +137,22 @@ export default function GamePage() {
       const newTopCard    = gameState.topCard;
       const oldTopCard    = prev.topCard;
 
-      // Nouvelle carte posée → détection +2 / +4 / Skip
-      if (newTopCard?.id !== oldTopCard?.id && currCurrentId === playerId) {
-        if (newTopCard?.value === "+2") {
+      // Nouvelle carte posée → notifications pour la victime uniquement
+      if (newTopCard?.id !== oldTopCard?.id) {
+        const cardCountDiff = (gameState.myHand?.length ?? 0) - (prev.myHand?.length ?? 0);
+
+        if (newTopCard?.value === "+2" && cardCountDiff >= 2) {
           showNotification("💀 Tu dois piocher 2 cartes !", 3000);
-        } else if (newTopCard?.value === "+4") {
+        } else if (newTopCard?.value === "+4" && cardCountDiff >= 4) {
           showNotification("💀 Tu dois piocher 4 cartes !", 3000);
         } else if (newTopCard?.value === "Skip") {
-          showNotification("⛔ Ton tour est passé !", 2500);
+          // Mon tour était le prochain mais a été sauté
+          const n       = prev.players.length;
+          const prevDir = prev.direction ?? 1;
+          const nextIdx = (prev.currentPlayerIndex + prevDir + n) % n;
+          if (prev.players[nextIdx]?.id === playerId) {
+            showNotification("⛔ Ton tour est passé !", 2500);
+          }
         }
       }
 
@@ -157,9 +184,22 @@ export default function GamePage() {
   );
 
   const seats = useMemo(() => {
-    const positions = ["top", "left", "right"];
-    return opponents.map((p, i) => ({ pos: positions[i] ?? "top", p }));
-  }, [opponents]);
+    // Positions visuelles dans le sens horaire depuis le bas (moi)
+    // 1 adversaire → top | 2 → left+right | 3 → left+top+right
+    const posMap = { 1: ["top"], 2: ["left", "right"], 3: ["left", "top", "right"] };
+    const positions = posMap[opponents.length] ?? ["top"];
+
+    // Réordonner les adversaires dans le sens des aiguilles d'une montre depuis ma position
+    const n     = players.length;
+    const myIdx = players.findIndex(p => p.id === playerId);
+    const ordered = [];
+    for (let step = 1; step < n && ordered.length < opponents.length; step++) {
+      const p = players[(myIdx + step) % n];
+      if (p && p.id !== playerId) ordered.push(p);
+    }
+
+    return ordered.map((p, i) => ({ pos: positions[i] ?? "top", p }));
+  }, [opponents, players, playerId]);
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -341,27 +381,6 @@ export default function GamePage() {
                   : <div style={{ width: 78, height: 112, borderRadius: 14, border: "2px dashed rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 12 }}>vide</div>
                 }
               </div>
-            </div>
-
-            {/* ── Flèches statiques de direction ── */}
-            <div className="direction-arrows">
-              <svg viewBox="0 0 160 160" width="160" height="160" style={{ opacity: 0.22 }}>
-                {direction === 1 ? (
-                  <>
-                    <path d="M 80 15 A 65 65 0 1 1 15 80" stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray="16 10"/>
-                    <polygon points="15,64 5,83 25,83" fill="white"/>
-                    <path d="M 80 145 A 65 65 0 1 0 145 80" stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray="16 10"/>
-                    <polygon points="145,96 135,77 155,77" fill="white"/>
-                  </>
-                ) : (
-                  <>
-                    <path d="M 80 15 A 65 65 0 1 0 145 80" stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray="16 10"/>
-                    <polygon points="145,64 135,83 155,83" fill="white"/>
-                    <path d="M 80 145 A 65 65 0 1 1 15 80" stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray="16 10"/>
-                    <polygon points="15,96 5,77 25,77" fill="white"/>
-                  </>
-                )}
-              </svg>
             </div>
 
           </section>

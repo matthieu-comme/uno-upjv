@@ -411,7 +411,6 @@ body {
 }
 
 .handCard.hovered {
-  transform: translate(var(--x), calc(var(--y) * 1px - 24px)) rotate(var(--r));
   filter: drop-shadow(0 20px 30px rgba(0,0,0,0.55));
 }
 
