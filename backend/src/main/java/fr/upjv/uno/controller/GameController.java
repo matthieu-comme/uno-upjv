@@ -160,6 +160,28 @@ public class GameController {
     }
   }
 
+
+  /**
+   * Permet à un joueur de piocher volontairement une carte pendant son tour.
+   *
+   * @param gameId  Identifiant de la partie.
+   * @param request Requête contenant l'identifiant du joueur.
+   * @return OK si l'action est valide, BadRequest sinon.
+   */
+  @PostMapping("/{gameId}/draw")
+  public ResponseEntity<Void> chooseToDraw(@PathVariable String gameId, @RequestBody DrawCardRequest request) {
+    try {
+      gameService.chooseToDraw(gameId, request.getPlayerId());
+
+      Game game = gameService.getGame(gameId);
+      broadcastGameState(game);
+
+      return ResponseEntity.ok().build();
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().build();
+    }
+  }
+  
   private void broadcastGameState(Game game) {
     for (Player player : game.getPlayers()) {
       messagingTemplate.convertAndSend(

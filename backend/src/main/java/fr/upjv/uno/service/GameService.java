@@ -167,11 +167,11 @@ public class GameService {
   public void playCard(String gameId, String playerId, int cardId, Color chosenColor) {
     Game game = getGame(gameId);
 
+    checkPlayerTurn(game, playerId);
+
     Player player = game.findPlayerById(playerId);
     if (player == null)
       throw new IllegalArgumentException("Joueur introuvable");
-    if (!player.equals(game.getCurrentPlayer()))
-      throw new IllegalArgumentException("Ce n'est pas son tour");
 
     Card card = player.getCards().stream().filter(c -> c.getId() == cardId).
             findFirst().orElseThrow(() -> new IllegalArgumentException("Carte introuvable"));
@@ -210,6 +210,21 @@ public class GameService {
       }
     }
 
+    game.updateCurrentPlayerIndex();
+  }
+
+  /**
+   * Fait piocher une carte au joueur dont c'est le tour et passe au joueur suivant.
+   *
+   * @param gameId   Identifiant de la partie.
+   * @param playerId Identifiant du joueur qui choisit de piocher.
+   */
+  public void chooseToDraw(String gameId, String playerId) {
+    Game game = getGame(gameId);
+
+    checkPlayerTurn(game, playerId);
+
+    drawCards(gameId, playerId, 1);
     game.updateCurrentPlayerIndex();
   }
   // TODO: startGame, callUno, leaveGame, handleWin, addBot, calculateScores
@@ -275,5 +290,17 @@ public class GameService {
     }
 
     return score;
+  }
+  /**
+   * Vérifie si c'est bien le tour du joueur spécifié.
+   *
+   * @param game     La partie en cours.
+   * @param playerId L'identifiant du joueur à vérifier.
+   * @throws IllegalArgumentException Si ce n'est pas le tour du joueur.
+   */
+  private void checkPlayerTurn(Game game, String playerId) {
+    if (game.getCurrentPlayer() == null || !game.getCurrentPlayer().getId().equals(playerId)) {
+      throw new IllegalArgumentException("Ce n'est pas le tour de ce joueur");
+    }
   }
 }
