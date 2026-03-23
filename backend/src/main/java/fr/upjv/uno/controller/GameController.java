@@ -20,6 +20,9 @@ import org.springframework.web.util.HtmlUtils;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+// TODO: voir pioche et son nombre de cartes
+// TODO: message d'erreur quand on rejoint directement via le lien et non par le menu
+// TODO: timer limitant le temps de jeu par action
 
 /**
  * Contrôleur REST gérant les requêtes liées aux parties de Uno.
@@ -81,13 +84,16 @@ public class GameController {
    * @return ResponseEntity contenant l'état de la partie mis à jour pour le nouveau joueur.
    */
   @PostMapping("/{gameId}/join")
-  public ResponseEntity<GameStateDTO> joinGame(@PathVariable String gameId, @RequestBody JoinGameRequest request) {
-    Player newPlayer = new Player(UUID.randomUUID().toString(), request.getPlayerName());
-    Game game = gameService.joinGame(gameId, newPlayer);
-
-    broadcastGameState(game);
-
-    return ResponseEntity.ok(mapToGameStateDTO(game, newPlayer.getId()));
+  public ResponseEntity<?> joinGame(@PathVariable String gameId, @RequestBody JoinGameRequest request) {
+    String cleanName = request.getPlayerName() != null ? request.getPlayerName().trim() : "Anonyme";
+    Player newPlayer = new Player(UUID.randomUUID().toString(), cleanName);
+    try {
+      Game game = gameService.joinGame(gameId, newPlayer);
+      broadcastGameState(game);
+      return ResponseEntity.ok(mapToGameStateDTO(game, newPlayer.getId()));
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.badRequest().body(e.getMessage());
+    }
   }
 
   /**
@@ -241,6 +247,7 @@ public class GameController {
             .direction(game.getDirection())
             .activeColor(game.getActiveColor())
             .topCard(topCardDTO)
+            .deckSize(game.getDeck().getSize())
             .currentPlayerIndex(game.getCurrentPlayerIndex())
             .players(playerDTOs)
             .myHand(myHand)

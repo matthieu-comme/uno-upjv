@@ -21,6 +21,7 @@ public class GameStateDTO {
   private CardDTO topCard;
   private int currentPlayerIndex;
   private List<PlayerDTO> players;
+  private int deckSize;
 
   /** Cartes possédées par le joueur qui reçoit ce DTO. */
   private List<CardDTO> myHand;

@@ -77,8 +77,27 @@ public class GameService {
    */
   public Game joinGame(String gameId, Player player) {
     Game game = getGame(gameId);
+
+    if (!isNameAvailable(game, player.getName()))
+      throw new IllegalArgumentException("Le nom " + player.getName() + " n'est pas disponible");
+
     game.addPlayer(player);
     return game;
+
+  }
+
+  /**
+   * Vérifie si le nom saisi par le joueur est disponible.
+   *
+   * @param name Nom à verifier
+   * @return {@code true} si le nom est dispo, {@code false} sinon.
+   */
+  private boolean isNameAvailable(Game game, String name) {
+    for (Player p : game.getPlayers()) {
+      if (p.getName().equals(name))
+        return false;
+    }
+    return true;
   }
 
   /**
