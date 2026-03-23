@@ -33,6 +33,35 @@ const MOCK_STATE = {
 const COLOR_MAP = { RED: "#e53935", BLUE: "#1e88e5", GREEN: "#43a047", YELLOW: "#fdd835" };
 const COLOR_LABEL = { RED: "ROUGE", BLUE: "BLEU", GREEN: "VERT", YELLOW: "JAUNE" };
 
+// ─── Normalisation backend → frontend ────────────────────────────────────────
+// Le backend sérialise les enums Java : RED, DRAW_TWO, WILD_DRAW_FOUR, etc.
+// Le frontend attend : "red", "+2", "+4", etc.
+
+const _C = { RED:"red", GREEN:"green", BLUE:"blue", YELLOW:"yellow", BLACK:"wild" };
+const _V = {
+  ZERO:"0", ONE:"1", TWO:"2", THREE:"3", FOUR:"4",
+  FIVE:"5", SIX:"6", SEVEN:"7", EIGHT:"8", NINE:"9",
+  SKIP:"Skip", REVERSE:"Reverse", DRAW_TWO:"+2", WILD:"Wild", WILD_DRAW_FOUR:"+4",
+};
+
+function normalizeCard(c) {
+  if (!c) return null;
+  return {
+    id:    c.id,
+    color: _C[c.color] ?? c.color?.toLowerCase() ?? "wild",
+    value: _V[c.value] ?? String(c.value ?? ""),
+  };
+}
+
+function normalizeState(state) {
+  if (!state) return null;
+  return {
+    ...state,
+    topCard: normalizeCard(state.topCard),
+    myHand:  (state.myHand ?? []).map(normalizeCard),
+  };
+}
+
 function isCardPlayable(card, topCard, activeColor) {
   if (!topCard) return true;
   if (card.color === "wild") return true;
@@ -49,12 +78,13 @@ export default function GamePage() {
   const isMock = !rawPlayerId;
   const playerId = isMock ? "mock-me" : rawPlayerId;
 
-  const [gameState, setGameState] = useState(isMock ? MOCK_STATE : null);
+  const [gameState, setGameState] = useState(isMock ? MOCK_STATE : normalizeState(navState?.initialState));
   const [wsStatus, setWsStatus] = useState(isMock ? "mock" : "connecting");
   const [showUno, setShowUno] = useState(false);
   const [ruleError, setRuleError] = useState("");
   const [notification, setNotification] = useState(null); // { text, emoji }
   const [flashSeatId, setFlashSeatId] = useState(null);
+  const [colorPicker, setColorPicker] = useState(null); // { card, sourceEl }
 
   const deckRef      = useRef(null);
   const discardRef   = useRef(null);
@@ -70,7 +100,7 @@ export default function GamePage() {
     connectWebSocket(
       gameId,
       playerId,
-      (state) => { setGameState(state); setWsStatus("connected"); },
+      (state) => { setGameState(normalizeState(state)); setWsStatus("connected"); },
       () => setWsStatus("error")
     );
     return () => disconnectWebSocket();
@@ -167,12 +197,22 @@ export default function GamePage() {
       return;
     }
 
+    // Carte wild : demander la couleur d'abord
+    if (card.color === "wild") {
+      setColorPicker({ card, sourceEl });
+      return;
+    }
+
+    await executePlayCard(card, sourceEl, null);
+  }
+
+  async function executePlayCard(card, sourceEl, chosenColor) {
     if (isMock) {
       animateCard(card, sourceEl, discardRef.current, () => {
         setGameState(prev => ({
           ...prev,
           topCard: card,
-          activeColor: card.color === "wild" ? prev.activeColor : card.color.toUpperCase(),
+          activeColor: chosenColor ?? (card.color === "wild" ? prev.activeColor : card.color.toUpperCase()),
           myHand: prev.myHand.filter(c => c.id !== card.id),
         }));
       });
@@ -180,7 +220,7 @@ export default function GamePage() {
     }
 
     try {
-      await apiPlayCard(gameId, playerId, card.id);
+      await apiPlayCard(gameId, playerId, card.id, chosenColor);
       animateCard(card, sourceEl, discardRef.current, () => {});
     } catch (e) {
       showError(e.message);
@@ -447,6 +487,49 @@ export default function GamePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Sélecteur de couleur (wild) ── */}
+      {colorPicker && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000,
+        }}>
+          <div style={{
+            background: "#1e1e2e", borderRadius: 20, padding: "28px 36px",
+            textAlign: "center", border: "1px solid rgba(255,255,255,0.12)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+          }}>
+            <div style={{ color: "white", fontWeight: 800, fontSize: 18, marginBottom: 20 }}>
+              Choisir une couleur
+            </div>
+            <div style={{ display: "flex", gap: 14 }}>
+              {[
+                { key: "RED",    hex: "#e53935", label: "Rouge" },
+                { key: "BLUE",   hex: "#1e88e5", label: "Bleu"  },
+                { key: "GREEN",  hex: "#43a047", label: "Vert"  },
+                { key: "YELLOW", hex: "#fdd835", label: "Jaune" },
+              ].map(({ key, hex, label }) => (
+                <button
+                  key={key}
+                  title={label}
+                  onClick={() => {
+                    const { card, sourceEl } = colorPicker;
+                    setColorPicker(null);
+                    executePlayCard(card, sourceEl, key);
+                  }}
+                  style={{
+                    width: 56, height: 56, borderRadius: 12, border: "3px solid rgba(255,255,255,0.2)",
+                    background: hex, cursor: "pointer", transition: "transform 0.15s",
+                    boxShadow: `0 4px 16px ${hex}88`,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = "scale(1.15)"}
+                  onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Carte volante ── */}
       <AnimatePresence>

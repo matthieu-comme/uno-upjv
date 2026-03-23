@@ -39,3 +39,17 @@ export function drawCard(gameId, playerId) {
     body: JSON.stringify({ playerId }),
   });
 }
+
+export function startGame(gameId) {
+  return request(`${BASE_URL}/${gameId}/start`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export function leaveGame(gameId, playerId) {
+  return request(`${BASE_URL}/${gameId}/leave`, {
+    method: 'POST',
+    body: JSON.stringify({ playerId }),
+  });
+}
