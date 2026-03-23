@@ -1,0 +1,433 @@
+/* =========================
+   HOME ROOT
+========================= */
+
+.home-root {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* =========================
+   ANIMATED BACKGROUND
+========================= */
+
+.home-bg {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(160deg, #0a0a18 0%, #080f1e 50%, #0b1830 100%);
+  z-index: 0;
+}
+
+.home-float-card {
+  position: absolute;
+  width: 52px;
+  height: 76px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, #2246c7, #102974 60%, #0a1848);
+  opacity: 0;
+  animation: float-card var(--duration, 15s) linear var(--delay, 0s) infinite;
+}
+
+@keyframes float-card {
+  0%   { transform: translateY(110vh) rotate(var(--r, -10deg)); opacity: 0; }
+  8%   { opacity: 0.07; }
+  92%  { opacity: 0.07; }
+  100% { transform: translateY(-20vh) rotate(var(--r, -10deg)); opacity: 0; }
+}
+
+/* =========================
+   CENTER WRAPPER
+========================= */
+
+.home-center {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+/* =========================
+   PANELS
+========================= */
+
+.home-panel {
+  width: 100%;
+  max-width: 520px;
+}
+
+.home-panel--sub {
+  background: rgba(8, 10, 22, 0.80);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* =========================
+   LOGO
+========================= */
+
+.home-logo {
+  text-align: center;
+  margin-bottom: 52px;
+}
+
+.home-logo-img {
+  max-height: 110px;
+  display: block;
+  margin: 0 auto;
+}
+
+.home-logo-text {
+  font-size: 80px;
+  font-weight: 900;
+  letter-spacing: 10px;
+  color: #e53935;
+  text-shadow:
+    0 0 40px rgba(229, 57, 53, 0.55),
+    0 5px 0 #700000,
+    5px 0 0 rgba(0, 0, 0, 0.4);
+}
+
+/* =========================
+   MENU ITEMS
+========================= */
+
+.home-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 20px;
+  cursor: pointer;
+  border-radius: 14px;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+              background 0.22s;
+  user-select: none;
+}
+
+.menu-item:hover,
+.menu-item--active {
+  transform: translateX(12px);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.menu-item-bar {
+  width: 4px;
+  border-radius: 2px;
+  height: 40px;
+  flex-shrink: 0;
+  transition: height 0.22s, box-shadow 0.22s;
+}
+
+.menu-item:hover .menu-item-bar,
+.menu-item--active .menu-item-bar {
+  height: 52px;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.menu-item-icon {
+  font-size: 22px;
+  width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.menu-item-text {
+  font-size: clamp(18px, 3.5vw, 24px);
+  font-weight: 900;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  flex: 1;
+  transition: color 0.2s;
+}
+
+.menu-item-arrow {
+  font-size: 30px;
+  color: rgba(255, 255, 255, 0.2);
+  font-weight: 300;
+  line-height: 1;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.menu-item:hover .menu-item-arrow,
+.menu-item--active .menu-item-arrow {
+  color: rgba(255, 255, 255, 0.55);
+  transform: translateX(5px);
+}
+
+/* =========================
+   PANEL HEADER
+========================= */
+
+.panel-header {
+  padding: 22px 28px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: color 0.2s, background 0.2s;
+  flex-shrink: 0;
+}
+
+.back-btn:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: white;
+}
+
+/* =========================
+   PANEL BODY
+========================= */
+
+.panel-body {
+  padding: 24px 28px 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-field {
+  margin-top: 0;
+}
+
+.home-field + .home-field {
+  margin-top: 22px;
+}
+
+.home-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+  margin-bottom: 9px;
+}
+
+.home-input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.home-input:focus {
+  border-color: rgba(229, 57, 53, 0.6);
+  background: rgba(229, 57, 53, 0.04);
+}
+
+.home-input::placeholder {
+  color: rgba(255, 255, 255, 0.18);
+}
+
+/* =========================
+   PLAYER COUNT
+========================= */
+
+.player-count-row {
+  display: flex;
+  gap: 10px;
+}
+
+.count-btn {
+  flex: 1;
+  padding: 14px 0;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 900;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.count-btn:hover {
+  border-color: rgba(229, 57, 53, 0.45);
+  color: white;
+}
+
+.count-btn--active {
+  background: rgba(229, 57, 53, 0.2);
+  border-color: rgba(229, 57, 53, 0.65);
+  color: white;
+  box-shadow: 0 0 14px rgba(229, 57, 53, 0.18);
+}
+
+/* =========================
+   OTP CODE INPUT
+========================= */
+
+.otp-grid {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.otp-cell {
+  width: 46px;
+  height: 58px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  font-size: 20px;
+  font-weight: 900;
+  text-align: center;
+  outline: none;
+  caret-color: transparent;
+  text-transform: uppercase;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.otp-cell:focus {
+  border-color: rgba(30, 136, 229, 0.8);
+  background: rgba(30, 136, 229, 0.07);
+  transform: translateY(-3px);
+}
+
+.otp-cell:not([value=""]) {
+  border-color: rgba(30, 136, 229, 0.35);
+}
+
+/* =========================
+   ACTION BUTTONS
+========================= */
+
+.home-action-btn {
+  margin-top: 28px;
+  width: 100%;
+  padding: 15px;
+  border-radius: 14px;
+  border: none;
+  background: #e53935;
+  color: white;
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+  box-shadow: 0 4px 22px rgba(229, 57, 53, 0.3);
+}
+
+.home-action-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(229, 57, 53, 0.45);
+}
+
+.home-action-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.home-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.home-action-btn--blue {
+  background: #1e88e5;
+  box-shadow: 0 4px 22px rgba(30, 136, 229, 0.3);
+}
+
+.home-action-btn--blue:hover:not(:disabled) {
+  box-shadow: 0 8px 30px rgba(30, 136, 229, 0.45);
+}
+
+/* =========================
+   ERROR
+========================= */
+
+.home-error {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(229, 57, 53, 0.12);
+  border: 1px solid rgba(229, 57, 53, 0.3);
+  color: #ff8a80;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* =========================
+   SETTINGS
+========================= */
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.settings-row span:first-child {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* =========================
+   PREVIEW LINKS
+========================= */
+
+.home-preview {
+  margin-top: 44px;
+  text-align: center;
+}
+
+.home-preview a {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.15);
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  transition: color 0.2s;
+}
+
+.home-preview a:hover {
+  color: rgba(255, 255, 255, 0.38);
+}
