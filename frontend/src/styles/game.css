@@ -24,9 +24,9 @@ body {
   --topbar-height: 56px;
   --hand-zone-height: 240px;
   --table-w: min(1000px, 82vw);
-  --table-h: min(540px, 54vh);
+  --table-h: min(500px, 50vh);
   --seat-left-offset: 80px;
-  --seat-top-offset: 10px;
+  --seat-top-offset: -18px;
 }
 
 /* =========================
@@ -97,7 +97,7 @@ body {
   min-height: 0;
   display: grid;
   place-items: center;
-  padding: 8px 20px 4px;
+  padding: 20px 20px 12px;
 }
 
 .board-shell {
@@ -198,19 +198,18 @@ body {
 ========================= */
 
 .active-color-pill {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
+  bottom: calc(var(--hand-zone-height) + 16px);
+  left: 20px;
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.72);
   border-radius: 999px;
   padding: 5px 14px 5px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(6px);
-  z-index: 3;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  z-index: 20;
 }
 
 @keyframes color-pulse {

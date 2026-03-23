@@ -232,11 +232,6 @@ export default function GamePage() {
   function handleDraw() {
     if (!isMyTurn) return;
 
-    if (hasPlayableCard) {
-      showError("Tu as une carte jouable, tu dois la poser !");
-      if (!isMock) return;
-    }
-
     if (isMock) {
       const colors  = ["red", "blue", "green", "yellow"];
       const values  = ["0","1","2","3","4","5","6","7","8","9","Skip","Reverse","+2"];
@@ -338,49 +333,14 @@ export default function GamePage() {
           {/* Table verte */}
           <section className="table">
 
-            {/* Indicateur couleur active */}
-            {activeColor && (
-              <div className="active-color-pill">
-                <div
-                  className="active-color-dot"
-                  style={{
-                    background: activeColorHex,
-                    boxShadow: `0 0 10px ${activeColorHex}`,
-                  }}
-                />
-                <span className="active-color-label">
-                  {COLOR_LABEL[activeColor] ?? activeColor}
-                </span>
-              </div>
-            )}
-
-            {/* Défausse + Pioche côte à côte au centre */}
+            {/* Défausse au centre */}
             <div className="table-center-zone">
-
-              {/* Défausse */}
               <div className="discard-pile" ref={discardRef}>
                 {topCard
                   ? <Card card={topCard} />
                   : <div style={{ width: 78, height: 112, borderRadius: 14, border: "2px dashed rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 12 }}>vide</div>
                 }
               </div>
-
-              {/* Pioche avec effet pile */}
-              <div
-                className={`draw-pile${isMyTurn ? " hoverable" : ""}`}
-                ref={deckRef}
-                onClick={handleDraw}
-                title={isMyTurn ? "Cliquer pour piocher" : ""}
-              >
-                <div className="draw-stack-visual">
-                  <div className="stack-card-bg" style={{ transform: "translate(-6px, -6px) rotate(-5deg)" }} />
-                  <div className="stack-card-bg" style={{ transform: "translate(-3px, -3px) rotate(-2deg)" }} />
-                  <div className="draw-card-small">
-                    <Card card={{ color: "wild", value: "" }} faceDown />
-                  </div>
-                </div>
-              </div>
-
             </div>
 
           </section>
@@ -397,9 +357,17 @@ export default function GamePage() {
         }
       </section>
 
+      {/* ── Indicateur couleur active (fixe, au-dessus de la main) ── */}
+      {activeColor && status === "IN_PROGRESS" && (
+        <div className="active-color-pill">
+          <div className="active-color-dot" style={{ background: activeColorHex, boxShadow: `0 0 10px ${activeColorHex}` }} />
+          <span className="active-color-label">{COLOR_LABEL[activeColor] ?? activeColor}</span>
+        </div>
+      )}
+
       {/* ── Boutons fixes ── */}
       <div className="fixed-controls">
-        <button className="btn" disabled={!isMyTurn} onClick={handleDraw}>
+        <button className="btn" ref={deckRef} disabled={!isMyTurn} onClick={handleDraw}>
           Pioche
         </button>
         <button
