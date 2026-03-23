@@ -32,3 +32,10 @@ export function playCard(gameId, playerId, cardId, chosenColor = null) {
     body: JSON.stringify({ playerId, cardId, chosenColor }),
   });
 }
+
+export function drawCard(gameId, playerId) {
+  return request(`${BASE_URL}/${gameId}/draw`, {
+    method: 'POST',
+    body: JSON.stringify({ playerId }),
+  });
+}
