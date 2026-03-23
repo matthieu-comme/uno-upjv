@@ -1,9 +1,9 @@
 const colorMap = {
-  red: "#e53935",
-  blue: "#1e88e5",
-  green: "#43a047",
+  red:    "#e53935",
+  blue:   "#1e88e5",
+  green:  "#43a047",
   yellow: "#fdd835",
-  wild: "#111",
+  wild:   "#111",
 };
 
 export default function Card({ card, faceDown = false, onClick }) {
@@ -23,13 +23,13 @@ export default function Card({ card, faceDown = false, onClick }) {
         boxShadow: "0 10px 24px rgba(0,0,0,0.45)",
         position: "relative",
         overflow: "hidden",
-        transition: "transform 0.2s ease"
+        transition: "transform 0.2s ease",
       }}
       onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-10px)"}
       onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0px)"}
       title={faceDown ? "Carte" : `${card.color} ${card.value}`}
     >
-      {/* Ellipse style UNO */}
+      {/* Ellipse décorative */}
       <div style={{
         position: "absolute",
         inset: -18,
