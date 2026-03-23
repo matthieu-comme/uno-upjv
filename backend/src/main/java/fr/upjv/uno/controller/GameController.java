@@ -32,7 +32,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/games")
-@CrossOrigin(origins = "*")
 @Controller
 public class GameController {
   private final GameService gameService;
