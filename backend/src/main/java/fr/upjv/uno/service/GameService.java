@@ -236,7 +236,12 @@ public class GameService {
     }
 
     switch (card.getValue()) {
-      case REVERSE -> game.reverseDirection();
+      case REVERSE -> {
+        if (game.getMaxPlayers() == 2)
+          game.updateCurrentPlayerIndex();
+        else
+          game.reverseDirection();
+      }
       case SKIP -> game.updateCurrentPlayerIndex();
       case DRAW_TWO -> {
         game.updateCurrentPlayerIndex();
@@ -263,7 +268,7 @@ public class GameService {
    * @param winner Le joueur qui a vidé sa main.
    */
   private void handleWin(Game game, Player winner) {
-    game.setStatus(GameStatus.FINISHED); // Adapte selon ton enum GameStatus
+    game.setStatus(GameStatus.FINISHED);
 
     int pointsWon = calculateScores(game);
 
@@ -316,21 +321,6 @@ public class GameService {
     if (player != null && player.getCards().size() <= 2) {
       return; //player.setHasUno(true);
     }
-  }
-
-
-  /**
-   * Gère la fin de partie déclenchée par la victoire d'un joueur.
-   *
-   * @param gameId   Identifiant de la partie.
-   * @param playerId Identifiant du joueur gagnant.
-   */
-  public void handleWin(String gameId, String playerId) {
-    Game game = getGame(gameId);
-    game.setStatus(GameStatus.FINISHED);
-
-    int totalScore = calculateScores(game);
-    // Logique supplémentaire pour assigner le score au gagnant
   }
 
   /**
