@@ -343,6 +343,27 @@ export default function GamePage() {
               </div>
             </div>
 
+            {/* ── Flèches statiques de direction ── */}
+            <div className="direction-arrows">
+              <svg viewBox="0 0 160 160" width="160" height="160" style={{ opacity: 0.22 }}>
+                {direction === 1 ? (
+                  <>
+                    <path d="M 80 15 A 65 65 0 1 1 15 80" stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray="16 10"/>
+                    <polygon points="15,64 5,83 25,83" fill="white"/>
+                    <path d="M 80 145 A 65 65 0 1 0 145 80" stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray="16 10"/>
+                    <polygon points="145,96 135,77 155,77" fill="white"/>
+                  </>
+                ) : (
+                  <>
+                    <path d="M 80 15 A 65 65 0 1 0 145 80" stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray="16 10"/>
+                    <polygon points="145,64 135,83 155,83" fill="white"/>
+                    <path d="M 80 145 A 65 65 0 1 1 15 80" stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray="16 10"/>
+                    <polygon points="15,96 5,77 25,77" fill="white"/>
+                  </>
+                )}
+              </svg>
+            </div>
+
           </section>
         </div>
       </main>
@@ -362,6 +383,28 @@ export default function GamePage() {
         <div className="active-color-pill">
           <div className="active-color-dot" style={{ background: activeColorHex, boxShadow: `0 0 10px ${activeColorHex}` }} />
           <span className="active-color-label">{COLOR_LABEL[activeColor] ?? activeColor}</span>
+        </div>
+      )}
+
+      {/* ── Panneau d'infos de partie ── */}
+      {status === "IN_PROGRESS" && (
+        <div className="game-info-panel">
+          <div className="game-info-row">
+            <span className="game-info-label">Joueurs</span>
+            <span className="game-info-value">{players.length}</span>
+          </div>
+          <div className="game-info-row">
+            <span className="game-info-label">Ma main</span>
+            <span className="game-info-value">{myHand.length} carte{myHand.length > 1 ? "s" : ""}</span>
+          </div>
+          <div className="game-info-row">
+            <span className="game-info-label">Sens</span>
+            <span className="game-info-value">{direction === 1 ? "↻ Horaire" : "↺ Anti-H."}</span>
+          </div>
+          <div className="game-info-row">
+            <span className="game-info-label">Pioche</span>
+            <span className="game-info-value">{gameState?.deckSize ?? "—"}</span>
+          </div>
         </div>
       )}
 

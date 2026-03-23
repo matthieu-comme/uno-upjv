@@ -9,7 +9,11 @@ async function request(url, options = {}) {
     const error = await response.text();
     throw new Error(error || `HTTP ${response.status}`);
   }
-  return response.json();
+  const ct = response.headers.get('content-type');
+  if (ct && ct.includes('application/json')) {
+    return response.json();
+  }
+  return null;
 }
 
 export function createGame(maxPlayers, gameMode = 'STANDARD') {

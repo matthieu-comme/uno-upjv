@@ -181,7 +181,7 @@ body {
 }
 
 /* =========================
-   FLÈCHE DE DIRECTION
+   FLÈCHES DE DIRECTION
 ========================= */
 
 .direction-wheel {
@@ -191,6 +191,15 @@ body {
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 1;
+}
+
+.direction-arrows {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* =========================
@@ -397,6 +406,13 @@ body {
   cursor: pointer;
   pointer-events: auto;
   will-change: transform;
+  transition: transform 0.18s ease, filter 0.18s ease;
+  filter: drop-shadow(0 8px 14px rgba(0,0,0,0.28));
+}
+
+.handCard.hovered {
+  transform: translate(var(--x), calc(var(--y) * 1px - 24px)) rotate(var(--r));
+  filter: drop-shadow(0 20px 30px rgba(0,0,0,0.55));
 }
 
 .motion-handCard {
@@ -447,6 +463,47 @@ body {
 .btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* =========================
+   PANNEAU INFOS PARTIE
+========================= */
+
+.game-info-panel {
+  position: fixed;
+  top: calc(var(--topbar-height) + 12px);
+  left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  padding: 10px 14px;
+  backdrop-filter: blur(8px);
+  z-index: 20;
+  min-width: 130px;
+}
+
+.game-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.game-info-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.game-info-value {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* =========================
