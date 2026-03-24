@@ -14,5 +14,5 @@ public class PlayerDTO {
   private String name;
   private boolean isConnected;
   private int handSize;
-  private boolean hasUno;
+  private boolean isUnoCalled;
 }

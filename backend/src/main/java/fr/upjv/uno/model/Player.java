@@ -22,6 +22,8 @@ public class Player {
   @ToString.Exclude // pour éviter de spam les logs
   private Hand hand = new Hand();
 
+  private boolean unoCalled = false;
+
   /**
    * @param id   Identifiant unique du joueur.
    * @param name Nom du joueur.
@@ -42,6 +44,7 @@ public class Player {
       throw new IllegalArgumentException("On ne peut pas piocher une carte nulle");
 
     this.hand.add(card);
+    this.unoCalled = false;
   }
 
   /**

@@ -206,6 +206,8 @@ public class GameService {
    */
   public void playCard(String gameId, String playerId, int cardId, Color chosenColor) {
     Game game = getGame(gameId);
+    if (game.getStatus() != GameStatus.IN_PROGRESS)
+      throw new IllegalArgumentException("La partie n'est pas en cours");
 
     checkPlayerTurn(game, playerId);
 
@@ -309,17 +311,31 @@ public class GameService {
   }
 
   /**
-   * Permet à un joueur d'annoncer "UNO" lorsqu'il s'apprête à n'avoir plus qu'une carte ou s'il n'en a qu'une.
+   * Gère l'annonce "Uno" et le "Contre-Uno".
    *
    * @param gameId   Identifiant de la partie.
-   * @param playerId Identifiant du joueur.
+   * @param callerId Identifiant du joueur qui clique sur le bouton "Uno".
    */
-  public void callUno(String gameId, String playerId) {
+  public void callUno(String gameId, String callerId) {
     Game game = getGame(gameId);
-    Player player = game.findPlayerById(playerId);
 
-    if (player != null && player.getCards().size() <= 2) {
-      return; //player.setHasUno(true);
+    if (game.getStatus() != GameStatus.IN_PROGRESS)
+      throw new IllegalStateException("La partie n'est pas en cours");
+
+    Player caller = game.findPlayerById(callerId);
+    if (caller == null)
+      throw new IllegalArgumentException("Joueur introuvable");
+
+    // uno
+    if (caller.getHandSize() <= 1) {
+      caller.setUnoCalled(true);
+    }
+
+    // contre-uno
+    for (Player p : game.getPlayers()) {
+      if (!p.getId().equals(callerId) && p.getHandSize() == 1 && !p.isUnoCalled()) {
+        drawCards(gameId, p.getId(), 2); // Pénalité de 2 cartes
+      }
     }
   }
 

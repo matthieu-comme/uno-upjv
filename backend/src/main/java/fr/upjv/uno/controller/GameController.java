@@ -3,19 +3,15 @@ package fr.upjv.uno.controller;
 import fr.upjv.uno.dto.request.*;
 import fr.upjv.uno.dto.response.CardDTO;
 import fr.upjv.uno.dto.response.GameStateDTO;
-import fr.upjv.uno.dto.response.Greeting;
 import fr.upjv.uno.dto.response.PlayerDTO;
 import fr.upjv.uno.model.Card;
 import fr.upjv.uno.model.Game;
 import fr.upjv.uno.model.Player;
 import fr.upjv.uno.service.GameService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.util.HtmlUtils;
 
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +26,7 @@ import java.util.stream.Collectors;
 // TODO: Client timer limitant le temps de jeu par action
 // TODO: Client Mieux gérer l'erreur quand on rejoint une salle pleine
 // TODO: Client Afficher dans le lobby par exemple nb joueurs 2/4
+// TODO: Serveur Bonne pioche
 
 /**
  * Contrôleur REST gérant les requêtes liées aux parties de Uno.
@@ -56,18 +53,6 @@ public class GameController {
   public GameController(GameService gameService, SimpMessagingTemplate messagingTemplate) {
     this.gameService = gameService;
     this.messagingTemplate = messagingTemplate;
-  }
-
-  /**
-   * Sert de Hello World.
-   *
-   * @param message message.
-   * @return Greeting.
-   */
-  @MessageMapping("/hello")
-  @SendTo("/topic/greetings")
-  public Greeting greeting(HelloMessage message) {
-    return new Greeting("Hello, " + HtmlUtils.htmlEscape(message.getName()) + " !");
   }
 
   /**
@@ -190,6 +175,26 @@ public class GameController {
     }
   }
 
+  /**
+   * Déclenche un Uno ou un Contre-Uno.
+   * @param gameId Identifiant de la partie.
+   * @param request On réutilise DrawCardRequest car elle contient juste un playerId.
+   * @return OK si action valide, BadRequest sinon.
+   */
+  @PostMapping("/{gameId}/uno")
+  public ResponseEntity<Void> callUno(@PathVariable String gameId, @RequestBody DrawCardRequest request) {
+    try {
+      gameService.callUno(gameId, request.getPlayerId());
+
+      Game game = gameService.getGame(gameId);
+      broadcastGameState(game);
+
+      return ResponseEntity.ok().build();
+    } catch (Exception e) {
+      return ResponseEntity.badRequest().build();
+    }
+  }
+
 
   /**
    * Permet à un joueur de piocher volontairement une carte pendant son tour.
@@ -228,7 +233,7 @@ public class GameController {
                     .name(p.getName())
                     .isConnected(p.isConnected())
                     .handSize(p.getHandSize())
-                    .hasUno(p.hasUno())
+                    .isUnoCalled(p.isUnoCalled())
                     .build())
             .collect(Collectors.toList());
 
