@@ -19,7 +19,8 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class GameService {
   private final Map<String, Game> activeGames;
-
+  // sessionId -> [gameId, playerId]
+  private final Map<String, String[]> sessionPlayerMap = new ConcurrentHashMap<>();
   private final DeckFactory deckFactory;
 
   /**
@@ -93,7 +94,7 @@ public class GameService {
    * Vérifie si le nom saisi par le joueur est disponible.
    *
    * @param name Nom à verifier
-   * @return {@code true} si le nom est dispo, {@code false} sinon.
+   * @return {@code true} si le nom est disponible, {@code false} sinon.
    */
   private boolean isNameAvailable(Game game, String name) {
     for (Player p : game.getPlayers()) {
@@ -122,13 +123,18 @@ public class GameService {
   }
 
   /**
-   * Démarre la partie, distribue 7 cartes à chaque joueur et initialise la carte de départ sur la défausse.
+   * Démarre la partie, distribue sept cartes à chaque joueur et initialise la carte de départ sur la défausse.
+   * Comble avec des bots si nécessaire.
    *
    * @param gameId Identifiant de la partie.
    */
   public void startGame(String gameId) {
     Game game = getGame(gameId);
 
+    // comble avec des bots
+    while (game.getPlayersNumber() < game.getMaxPlayers()) {
+      addBot(gameId, Difficulty.RANDOM);
+    }
     game.getDeck().shuffle();
 
     for (Player player : game.getPlayers()) {
@@ -405,13 +411,50 @@ public class GameService {
         } else { // aucune carte jouable
           chooseToDraw(gameId, bot.getId());
         }
-
-        // /!\ IMPORTANT : N'oublie pas d'importer ton SimpMessagingTemplate dans GameService
-        // ou de passer par un pattern Observer pour notifier le frontend de la fin du tour du bot.
-
       } catch (Exception e) {
         System.err.println("Erreur lors du tour du bot : " + e.getMessage());
       }
     });
+  }
+
+  /**
+   * Associe une session WebSocket à un joueur et le marque comme connecté.
+   *
+   * @param sessionId Identifiant de la session WebSocket
+   * @param gameId    Identifiant de la partie en cours.
+   * @param playerId  Identifiant du joueur connecté.
+   */
+  public void connectPlayer(String sessionId, String gameId, String playerId) {
+    sessionPlayerMap.put(sessionId, new String[]{gameId, playerId});
+    Game game = getGame(gameId);
+    Player p = game.findPlayerById(playerId);
+    if (p != null) {
+      p.setConnected(true);
+    }
+  }
+
+  /**
+   * Supprime la session WebSocket et marque le joueur comme déconnecté.
+   *
+   * @param sessionId Identifiant de la session WebSocket
+   */
+  public void disconnectPlayer(String sessionId) {
+    String[] info = sessionPlayerMap.remove(sessionId);
+    if (info != null) {
+      String gameId = info[0];
+      String playerId = info[1];
+      try {
+        Game game = getGame(gameId);
+        Player p = game.findPlayerById(playerId);
+        if (p != null) {
+          p.setConnected(false);
+          // Si c'est son tour, on déclenche l'IA
+          if (game.getCurrentPlayer().getId().equals(playerId)) {
+            playBotTurn(gameId);
+          }
+        }
+      } catch (IllegalArgumentException ignored) {
+      }
+    }
   }
 }
