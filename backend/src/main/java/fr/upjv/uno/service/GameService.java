@@ -3,12 +3,15 @@ package fr.upjv.uno.service;
 import fr.upjv.uno.factory.DeckFactory;
 import fr.upjv.uno.model.*;
 import fr.upjv.uno.model.enums.Color;
+import fr.upjv.uno.model.enums.Difficulty;
 import fr.upjv.uno.model.enums.GameStatus;
 import fr.upjv.uno.util.GameCodeGenerator;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Gère la logique des parties.
@@ -143,6 +146,7 @@ public class GameService {
     game.setActiveColor(firstColor);
 
     game.setStatus(GameStatus.IN_PROGRESS);
+    playBotTurn(gameId);
   }
 
   /**
@@ -261,6 +265,8 @@ public class GameService {
       return;
     }
     game.updateCurrentPlayerIndex();
+
+    playBotTurn(gameId);
   }
 
   /**
@@ -308,6 +314,8 @@ public class GameService {
 
     drawCards(gameId, playerId, 1);
     game.updateCurrentPlayerIndex();
+
+    playBotTurn(gameId);
   }
 
   /**
@@ -339,19 +347,6 @@ public class GameService {
     }
   }
 
-  /**
-   * Ajoute un joueur contrôlé par l'ordinateur à la partie.
-   *
-   * @param gameId Identifiant de la partie.
-   */
-  public void addBot(String gameId) {
-    Game game = getGame(gameId);
-    String botId = java.util.UUID.randomUUID().toString();
-    Player bot = new Player(botId, "Bot-" + botId.substring(0, 4));
-
-    // bot.setBot(true); // Nécessite d'ajouter un attribut booléen isBot dans la classe Player
-    game.addPlayer(bot);
-  }
 
   /**
    * Vérifie si c'est bien le tour du joueur spécifié.
@@ -364,5 +359,59 @@ public class GameService {
     if (game.getCurrentPlayer() == null || !game.getCurrentPlayer().getId().equals(playerId)) {
       throw new IllegalArgumentException("Ce n'est pas le tour de ce joueur");
     }
+  }
+
+
+  /**
+   * Ajoute un joueur contrôlé par l'ordinateur à la partie.
+   *
+   * @param gameId     Identifiant de la partie.
+   * @param difficulty Difficulté du bot.
+   */
+  public void addBot(String gameId, Difficulty difficulty) {
+    Game game = getGame(gameId);
+    String botId = java.util.UUID.randomUUID().toString();
+    AIPlayer bot = new AIPlayer(botId, botId.substring(0, 4), difficulty);
+    game.addPlayer(bot);
+  }
+
+  /**
+   * Fait jouer le bot si c'est son tour.
+   *
+   * @param gameId Identifiant de la partie.
+   */
+  public void playBotTurn(String gameId) {
+    Game game = getGame(gameId);
+    Player currentPlayer = game.getCurrentPlayer();
+
+    if (!(currentPlayer instanceof AIPlayer bot)) {
+      return;
+    }
+
+    // simule temps de reflexion
+    CompletableFuture.delayedExecutor(1500, TimeUnit.MILLISECONDS).execute(() -> {
+      try {
+        Card topCard = game.getTopCard();
+        Color activeColor = game.getActiveColor() != null ? game.getActiveColor() : topCard.getColor();
+
+        Card cardToPlay = bot.chooseCardToPlay(activeColor, topCard.getValue());
+
+        if (cardToPlay != null) {
+          Color chosenColor = null;
+          if (cardToPlay.getColor() == Color.BLACK) {
+            chosenColor = bot.chooseColor();
+          }
+          playCard(gameId, bot.getId(), cardToPlay.getId(), chosenColor);
+        } else { // aucune carte jouable
+          chooseToDraw(gameId, bot.getId());
+        }
+
+        // /!\ IMPORTANT : N'oublie pas d'importer ton SimpMessagingTemplate dans GameService
+        // ou de passer par un pattern Observer pour notifier le frontend de la fin du tour du bot.
+
+      } catch (Exception e) {
+        System.err.println("Erreur lors du tour du bot : " + e.getMessage());
+      }
+    });
   }
 }
