@@ -17,8 +17,10 @@ export default function LobbyPage() {
   const [starting,   setStarting]   = useState(false);
   const hasLeftRef = useRef(false);
 
-  const isCreator = players.length > 0 && players[0]?.id === playerId;
-  const canStart  = isCreator && players.length >= 2;
+  const isCreator    = players.length > 0 && players[0]?.id === playerId;
+  const canStart     = isCreator && players.length >= 1;
+  const maxPlayers   = navState?.maxPlayers ?? null;
+  const botsNeeded   = maxPlayers ? Math.max(0, maxPlayers - players.length) : 0;
 
   // ── WebSocket ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -29,9 +31,18 @@ export default function LobbyPage() {
 
       if (gameState.status === "IN_PROGRESS") {
         disconnectWebSocket();
-        navigate(`/game/${gameId}`, { state: { playerId, gameId, playerName, initialState: gameState } });
+        navigate(`/game/${gameId}`, {
+          state: {
+            playerId,
+            gameId,
+            playerName,
+            initialState: gameState,
+            // IDs des joueurs humains présents au lobby (les autres seront des bots)
+            humanPlayerIds: players.map(p => p.id),
+          },
+        });
       }
-    });
+    }, () => {}); // onStateChange ignoré dans le lobby
 
     return () => disconnectWebSocket();
   }, [gameId, playerId, navigate, playerName]);

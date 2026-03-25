@@ -4,7 +4,13 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import Hand from "../components/Hand";
 import Card from "../components/Card";
-import { playCard as apiPlayCard, drawCard as apiDrawCard } from "../services/api";
+import {
+  playCard as apiPlayCard,
+  drawCard as apiDrawCard,
+  callUno as apiCallUno,
+  counterUno as apiCounterUno,
+  getGameState as apiGetGameState,
+} from "../services/api";
 import { connectWebSocket, disconnectWebSocket } from "../services/websocket";
 import "../styles/game.css";
 
@@ -13,6 +19,7 @@ const MOCK_STATE = {
   direction: 1,
   activeColor: "RED",
   currentPlayerIndex: 0,
+  deckSize: 42,
   topCard: { id: "t1", color: "red", value: "7" },
   myHand: [
     { id: "h1", color: "red",    value: "3" },
@@ -30,13 +37,10 @@ const MOCK_STATE = {
   ],
 };
 
-const COLOR_MAP = { RED: "#e53935", BLUE: "#1e88e5", GREEN: "#43a047", YELLOW: "#fdd835" };
-const COLOR_LABEL = { RED: "ROUGE", BLUE: "BLEU", GREEN: "VERT", YELLOW: "JAUNE" };
+const COLOR_MAP   = { RED: "#e53935", BLUE: "#1e88e5", GREEN: "#43a047", YELLOW: "#fdd835" };
+const COLOR_LABEL = { RED: "ROUGE",   BLUE: "BLEU",    GREEN: "VERT",    YELLOW: "JAUNE"   };
 
 // ─── Normalisation backend → frontend ────────────────────────────────────────
-// Le backend sérialise les enums Java : RED, DRAW_TWO, WILD_DRAW_FOUR, etc.
-// Le frontend attend : "red", "+2", "+4", etc.
-
 const _C = { RED:"red", GREEN:"green", BLUE:"blue", YELLOW:"yellow", BLACK:"wild" };
 const _V = {
   ZERO:"0", ONE:"1", TWO:"2", THREE:"3", FOUR:"4",
@@ -77,14 +81,25 @@ export default function GamePage() {
   const rawPlayerId = navState?.playerId;
   const isMock = !rawPlayerId;
   const playerId = isMock ? "mock-me" : rawPlayerId;
+  // IDs des joueurs humains passés depuis le lobby — les autres sont des bots
+  const humanPlayerIds = useMemo(
+    () => new Set(navState?.humanPlayerIds ?? []),
+    [navState?.humanPlayerIds]
+  );
+  const isBot = (id) => !isMock && humanPlayerIds.size > 0 && !humanPlayerIds.has(id);
 
   const [gameState, setGameState] = useState(isMock ? MOCK_STATE : normalizeState(navState?.initialState));
+  // "mock" | "connecting" | "connected" | "reconnecting:N:MAX" | "failed"
   const [wsStatus, setWsStatus] = useState(isMock ? "mock" : "connecting");
-  const [showUno, setShowUno] = useState(false);
+  // { name, isMe } — visible par tout le monde quand un joueur passe à 1 carte
+  const [unoOverlay, setUnoOverlay] = useState(null);
   const [ruleError, setRuleError] = useState("");
-  const [notification, setNotification] = useState(null); // { text, emoji }
+  const [notification, setNotification] = useState(null);
   const [flashSeatId, setFlashSeatId] = useState(null);
-  const [colorPicker, setColorPicker] = useState(null); // { card, sourceEl }
+  const [colorPicker, setColorPicker] = useState(null);
+  const [winnerOverlay, setWinnerOverlay] = useState(null);
+  // Suivi local des joueurs ayant annoncé UNO (Set de player IDs)
+  const [unoCalled, setUnoCalled] = useState(new Set());
 
   const deckRef      = useRef(null);
   const discardRef   = useRef(null);
@@ -93,8 +108,33 @@ export default function GamePage() {
   const [flyingCard, setFlyingCard] = useState(null);
   const flyingDoneRef = useRef(null);
 
-  // ─── WebSocket ───────────────────────────────────────────────────────────────
+  // ─── Countdown overlay gagnant ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!winnerOverlay) return;
+    if (winnerOverlay.countdown <= 0) {
+      navigate(`/end/${gameId}`, { state: winnerOverlay.navState });
+      return;
+    }
+    const t = setTimeout(() => {
+      setWinnerOverlay(prev => prev ? { ...prev, countdown: prev.countdown - 1 } : null);
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [winnerOverlay, gameId, navigate]);
 
+  // ─── Nettoyage fermeture onglet ──────────────────────────────────────────────
+  useEffect(() => {
+    if (isMock) return;
+    const handleUnload = () => {
+      navigator.sendBeacon(
+        `/api/games/${gameId}/leave`,
+        new Blob([JSON.stringify({ playerId })], { type: "application/json" })
+      );
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, [gameId, playerId, isMock]);
+
+  // ─── WebSocket ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (isMock) return;
     connectWebSocket(
@@ -102,31 +142,61 @@ export default function GamePage() {
       playerId,
       (state) => {
         setGameState(normalizeState(state));
-        setWsStatus("connected");
 
-        // Fin de partie : status FINISHED ou un joueur a 0 carte (win non détecté côté back)
-        if (state.status === "FINISHED" || (state.status === "IN_PROGRESS" && state.players?.some(p => p.handSize === 0))) {
+        const isFinished = state.status === "FINISHED"
+          || (state.status === "IN_PROGRESS" && state.players?.some(p => p.handSize === 0));
+
+        if (isFinished) {
           disconnectWebSocket();
-          const w = state.players?.find(p => p.handSize === 0);
-          navigate(`/end/${gameId}`, {
-            state: {
-              winner:     w?.name ?? "Inconnu",
-              winnerId:   w?.id,
-              players:    state.players,
-              playerId,
-              playerName: navState?.playerName,
-              gameId,
-            },
-          });
+          const w = state.players?.find(p => p.handSize === 0)
+                 ?? state.players?.[state.currentPlayerIndex];
+          const endNavState = {
+            winner:     w?.name ?? "Inconnu",
+            winnerId:   w?.id,
+            players:    state.players,
+            playerId,
+            playerName: navState?.playerName,
+            gameId,
+          };
+          setWinnerOverlay({ name: w?.name ?? "Inconnu", countdown: 10, navState: endNavState });
         }
       },
-      () => setWsStatus("error")
+      (status, attempt, max) => {
+        if (status === 'connected' || status === 'reconnected') {
+          setWsStatus("connected");
+        } else if (status === 'reconnecting') {
+          setWsStatus(`reconnecting:${attempt}:${max}`);
+        } else if (status === 'failed' || status === 'error') {
+          setWsStatus("failed");
+        }
+      }
     );
     return () => disconnectWebSocket();
   }, [gameId, playerId, isMock, navigate]);
 
-  // ─── Détection des événements de jeu (pénalités, changement de tour) ────────
+  // ─── Polling fallback quand c'est le tour d'un bot ───────────────────────────
+  // Actif uniquement si le backend ne diffuse pas encore après les tours de bot.
+  // Nécessite GET /api/games/{gameId}/state/{playerId} côté backend.
+  useEffect(() => {
+    if (isMock) return;
+    const currentPlayerId = gameState?.players?.[gameState?.currentPlayerIndex]?.id;
+    const botIsPlaying = currentPlayerId && isBot(currentPlayerId) && gameState?.status === "IN_PROGRESS";
+    if (!botIsPlaying) return;
 
+    const interval = setInterval(async () => {
+      try {
+        const state = await apiGetGameState(gameId, playerId);
+        if (state) setGameState(normalizeState(state));
+      } catch {
+        // endpoint pas encore disponible — silencieux
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState?.currentPlayerIndex, gameState?.status, gameId, playerId, isMock]);
+
+  // ─── Détection des événements de jeu ────────────────────────────────────────
   useEffect(() => {
     if (!gameState) return;
     const prev = prevStateRef.current;
@@ -137,7 +207,7 @@ export default function GamePage() {
       const newTopCard    = gameState.topCard;
       const oldTopCard    = prev.topCard;
 
-      // Nouvelle carte posée → notifications pour la victime uniquement
+      // Nouvelle carte posée
       if (newTopCard?.id !== oldTopCard?.id) {
         const cardCountDiff = (gameState.myHand?.length ?? 0) - (prev.myHand?.length ?? 0);
 
@@ -146,7 +216,6 @@ export default function GamePage() {
         } else if (newTopCard?.value === "+4" && cardCountDiff >= 4) {
           showNotification("💀 Tu dois piocher 4 cartes !", 3000);
         } else if (newTopCard?.value === "Skip") {
-          // Mon tour était le prochain mais a été sauté
           const n       = prev.players.length;
           const prevDir = prev.direction ?? 1;
           const nextIdx = (prev.currentPlayerIndex + prevDir + n) % n;
@@ -154,42 +223,90 @@ export default function GamePage() {
             showNotification("⛔ Ton tour est passé !", 2500);
           }
         }
+
+        // Animation : carte de l'adversaire qui vient d'être posée
+        if (prevCurrentId && prevCurrentId !== playerId) {
+          const seatEl = document.querySelector(`[data-player-id="${prevCurrentId}"] .opponent-cards`);
+          if (seatEl && discardRef.current) {
+            animateCard(newTopCard, seatEl, discardRef.current, () => {}, false);
+          }
+        }
       }
 
-      // Flash sur le siège du nouveau joueur actif
+      // Flash siège du nouveau joueur actif
       if (currCurrentId && currCurrentId !== prevCurrentId && currCurrentId !== playerId) {
         setFlashSeatId(currCurrentId);
         setTimeout(() => setFlashSeatId(null), 900);
       }
+
+      // Détecter quand un joueur passe à 1 carte → overlay UNO visible par tous
+      for (const p of gameState.players ?? []) {
+        const prevP = prev.players?.find(q => q.id === p.id);
+        if (p.handSize === 1 && prevP && prevP.handSize > 1) {
+          const isMe = p.id === playerId;
+          setUnoOverlay({ name: p.name, isMe });
+          setTimeout(() => setUnoOverlay(null), 2200);
+        }
+      }
+
+      // Notification quand c'est le tour d'un bot (changement de joueur actif)
+      const prevCurrentPlayer = prev.players?.[prev.currentPlayerIndex];
+      const newCurrentPlayer  = gameState.players?.[gameState.currentPlayerIndex];
+      if (
+        newCurrentPlayer &&
+        newCurrentPlayer.id !== prevCurrentPlayer?.id &&
+        isBot(newCurrentPlayer.id)
+      ) {
+        showNotification(`🤖 ${newCurrentPlayer.name} réfléchit…`, 2000);
+      }
+
+      // Nettoyer UNO annoncé quand un joueur n'a plus 1 carte
+      setUnoCalled(prev => {
+        let changed = false;
+        const next = new Set(prev);
+        for (const p of gameState.players ?? []) {
+          if (p.handSize !== 1 && next.has(p.id)) {
+            next.delete(p.id);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
     }
 
     prevStateRef.current = gameState;
   }, [gameState, playerId]);
 
   // ─── Dérivations ─────────────────────────────────────────────────────────────
-
   const myHand        = gameState?.myHand ?? [];
   const topCard       = gameState?.topCard ?? null;
   const players       = gameState?.players ?? [];
-  const opponents     = players.filter(p => p.id !== playerId);
   const currentPlayer = players[gameState?.currentPlayerIndex];
   const isMyTurn      = currentPlayer?.id === playerId;
   const status        = gameState?.status ?? "WAITING_FOR_PLAYERS";
   const activeColor   = gameState?.activeColor;
   const direction     = gameState?.direction ?? 1;
+  const deckSize      = gameState?.deckSize ?? 0;
 
-  const hasPlayableCard = useMemo(
-    () => myHand.some(c => isCardPlayable(c, topCard, activeColor)),
-    [myHand, topCard, activeColor]
+  // Décodage wsStatus reconnexion
+  const isReconnecting = wsStatus.startsWith("reconnecting:");
+  const isFailed       = wsStatus === "failed";
+  const reconnectParts = isReconnecting ? wsStatus.split(":") : [];
+  const reconnectAttempt = reconnectParts[1] ? parseInt(reconnectParts[1]) : 0;
+  const reconnectMax     = reconnectParts[2] ? parseInt(reconnectParts[2]) : 5;
+
+  // Adversaires ayant 1 carte sans avoir annoncé UNO → cibles Contre-UNO
+  const counterUnoTargets = useMemo(
+    () => players.filter(p => p.id !== playerId && p.handSize === 1 && !unoCalled.has(p.id)),
+    [players, playerId, unoCalled]
   );
 
+  // Placement des adversaires en sens horaire depuis ma position dans la liste
   const seats = useMemo(() => {
-    // Positions visuelles dans le sens horaire depuis le bas (moi)
-    // 1 adversaire → top | 2 → left+right | 3 → left+top+right
-    const posMap = { 1: ["top"], 2: ["left", "right"], 3: ["left", "top", "right"] };
+    const posMap   = { 1: ["top"], 2: ["left", "right"], 3: ["left", "top", "right"] };
+    const opponents = players.filter(p => p.id !== playerId);
     const positions = posMap[opponents.length] ?? ["top"];
 
-    // Réordonner les adversaires dans le sens des aiguilles d'une montre depuis ma position
     const n     = players.length;
     const myIdx = players.findIndex(p => p.id === playerId);
     const ordered = [];
@@ -199,10 +316,9 @@ export default function GamePage() {
     }
 
     return ordered.map((p, i) => ({ pos: positions[i] ?? "top", p }));
-  }, [opponents, players, playerId]);
+  }, [players, playerId]);
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
-
   function showError(msg) {
     setRuleError(msg);
     setTimeout(() => setRuleError(""), 2500);
@@ -228,7 +344,6 @@ export default function GamePage() {
   }
 
   // ─── Jouer une carte ─────────────────────────────────────────────────────────
-
   async function handlePlayCard(card, sourceEl) {
     if (!isMyTurn) return;
 
@@ -237,7 +352,6 @@ export default function GamePage() {
       return;
     }
 
-    // Carte wild : demander la couleur d'abord
     if (card.color === "wild") {
       setColorPicker({ card, sourceEl });
       return;
@@ -260,87 +374,133 @@ export default function GamePage() {
     }
 
     try {
-      await apiPlayCard(gameId, playerId, card.id, chosenColor);
+      // Animation départ immédiate, même avant la réponse du serveur
       animateCard(card, sourceEl, discardRef.current, () => {});
+      await apiPlayCard(gameId, playerId, card.id, chosenColor);
     } catch (e) {
       showError(e.message);
     }
   }
 
   // ─── Piocher une carte ───────────────────────────────────────────────────────
-
   function handleDraw() {
     if (!isMyTurn) return;
 
-    if (isMock) {
-      const colors  = ["red", "blue", "green", "yellow"];
-      const values  = ["0","1","2","3","4","5","6","7","8","9","Skip","Reverse","+2"];
-      const color   = colors[Math.floor(Math.random() * colors.length)];
-      const value   = values[Math.floor(Math.random() * values.length)];
-      const newCard = { id: `drawn-${Date.now()}`, color, value };
+    // Animation : carte dos volante depuis la pioche vers la main
+    const deckEl   = deckRef.current;
+    const from     = rectOf(deckEl);
+    const handZone = rectOf(handZoneRef.current);
 
-      const deckEl   = deckRef.current?.querySelector(".draw-card-small") ?? deckRef.current;
-      const from     = rectOf(deckEl);
-      const handZone = rectOf(handZoneRef.current);
+    if (from && handZone) {
+      const to = { x: handZone.x + handZone.w / 2 - 39, y: handZone.y + 20, w: 78, h: 112 };
 
-      if (from && handZone) {
-        const to = { x: handZone.x + handZone.w / 2 - 39, y: handZone.y + 20, w: 78, h: 112 };
+      if (isMock) {
+        const colors  = ["red", "blue", "green", "yellow"];
+        const values  = ["0","1","2","3","4","5","6","7","8","9","Skip","Reverse","+2"];
+        const color   = colors[Math.floor(Math.random() * colors.length)];
+        const value   = values[Math.floor(Math.random() * values.length)];
+        const newCard = { id: `drawn-${Date.now()}`, color, value };
         setFlyingCard({ card: { color: "wild", value: "" }, faceDown: true, from, to, key: crypto.randomUUID?.() ?? String(Date.now()) });
         flyingDoneRef.current = () => setGameState(prev => ({ ...prev, myHand: [...prev.myHand, newCard] }));
-      } else {
-        setGameState(prev => ({ ...prev, myHand: [...prev.myHand, newCard] }));
+        return;
       }
-      return;
+
+      // Mode réel : animation en avance, le WS apportera la mise à jour
+      setFlyingCard({ card: { color: "wild", value: "" }, faceDown: true, from, to, key: crypto.randomUUID?.() ?? String(Date.now()) });
+      flyingDoneRef.current = null;
     }
 
-    apiDrawCard(gameId, playerId).catch(e => showError(e.message));
+    if (!isMock) {
+      apiDrawCard(gameId, playerId).catch(e => showError(e.message));
+    }
   }
 
   // ─── UNO ─────────────────────────────────────────────────────────────────────
-
   function handleUno() {
     if (myHand.length > 2) {
       showError("UNO ! Seulement quand il te reste 1 ou 2 cartes.");
       return;
     }
-    setShowUno(true);
-    setTimeout(() => setShowUno(false), 2000);
+    setUnoCalled(prev => new Set([...prev, playerId]));
+    setUnoOverlay({ name: navState?.playerName ?? "Toi", isMe: true });
+    setTimeout(() => setUnoOverlay(null), 2200);
+    apiCallUno(gameId, playerId).catch(() => {});
+  }
+
+  // ─── Contre-UNO ──────────────────────────────────────────────────────────────
+  function handleCounterUno(target) {
+    setUnoCalled(prev => new Set([...prev, target.id]));
+    showNotification(`💀 Contre-UNO ! ${target.name} pioche 2 cartes !`, 3000);
+    apiCounterUno(gameId, playerId, target.id).catch(() => {});
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────────
-
   const activeColorHex = COLOR_MAP[activeColor] ?? "#555";
 
   return (
     <div className="game-root">
 
+      {/* ── Fond animé d'ambiance ── */}
+      <div className="game-bg" aria-hidden="true">
+        <div className="game-bg-orb orb-1" />
+        <div className="game-bg-orb orb-2" />
+        <div className="game-bg-orb orb-3" />
+        <div className="game-bg-orb orb-4" />
+      </div>
+
       {/* ── Top bar ── */}
       <header className="game-topbar">
         <h2 className="game-title">#{gameId}</h2>
 
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentPlayer?.id ?? "none"}
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            transition={{ duration: 0.2 }}
-            className={`turn-pill${isMyTurn ? " my-turn" : ""}`}
-          >
-            {status === "IN_PROGRESS"
-              ? (isMyTurn ? "🎯 C'est ton tour !" : `Tour de ${currentPlayer?.name ?? "..."}`)
-              : status === "WAITING_FOR_PLAYERS" ? `⏳ En attente… (${players.length}) — ${gameId}`
-              : "🏆 Terminé"
-            }
-          </motion.div>
-        </AnimatePresence>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Couleur active */}
+          {activeColor && status === "IN_PROGRESS" && (
+            <div className="topbar-color-pill">
+              <div className="topbar-color-dot" style={{ background: activeColorHex, boxShadow: `0 0 8px ${activeColorHex}` }} />
+              <span className="topbar-color-label">{COLOR_LABEL[activeColor] ?? activeColor}</span>
+            </div>
+          )}
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentPlayer?.id ?? "none"}
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={{ duration: 0.2 }}
+              className={`turn-pill${isMyTurn ? " my-turn" : ""}`}
+            >
+              {status === "IN_PROGRESS"
+                ? (isMyTurn
+                    ? "🎯 C'est ton tour !"
+                    : currentPlayer && isBot(currentPlayer.id)
+                      ? `🤖 ${currentPlayer.name} joue…`
+                      : `Tour de ${currentPlayer?.name ?? "..."}`)
+                : status === "WAITING_FOR_PLAYERS" ? `⏳ En attente… (${players.length})`
+                : "🏆 Terminé"
+              }
+            </motion.div>
+          </AnimatePresence>
+        </div>
 
         <div style={{
           fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
-          background: wsStatus === "mock" ? "rgba(255,193,7,0.2)" : wsStatus === "connected" ? "rgba(67,160,71,0.3)" : wsStatus === "error" ? "rgba(229,57,53,0.3)" : "rgba(255,255,255,0.1)",
-          color:      wsStatus === "mock" ? "#ffe082"            : wsStatus === "connected" ? "#a5d6a7"            : wsStatus === "error" ? "#ff8a80"            : "#ccc",
+          background: wsStatus === "mock"      ? "rgba(255,193,7,0.2)"
+                    : wsStatus === "connected" ? "rgba(67,160,71,0.3)"
+                    : isFailed                 ? "rgba(229,57,53,0.3)"
+                    : isReconnecting           ? "rgba(255,152,0,0.3)"
+                    : "rgba(255,255,255,0.1)",
+          color: wsStatus === "mock"      ? "#ffe082"
+               : wsStatus === "connected" ? "#a5d6a7"
+               : isFailed                 ? "#ff8a80"
+               : isReconnecting           ? "#ffcc80"
+               : "#ccc",
         }}>
-          {wsStatus === "mock" ? "◆ Mock" : wsStatus === "connected" ? "● Connecté" : wsStatus === "error" ? "● Erreur WS" : "○ Connexion..."}
+          {wsStatus === "mock"      ? "◆ Mock"
+         : wsStatus === "connected" ? "● Connecté"
+         : isFailed                 ? "● Hors ligne"
+         : isReconnecting           ? `↻ Reconnexion… (${reconnectAttempt}/${reconnectMax})`
+         : "○ Connexion…"}
         </div>
       </header>
 
@@ -348,12 +508,16 @@ export default function GamePage() {
       <main className="table-container">
         <div className="board-shell">
 
-          {/* Sièges adversaires */}
+          {/* Sièges adversaires (sens horaire depuis ma position dans players[]) */}
           {seats.map(({ pos, p }) => {
             const isActive = currentPlayer?.id === p.id;
             const isFlash  = flashSeatId === p.id;
             return (
-              <div key={p.id} className={`seat ${pos}${isActive ? " active" : ""}${isFlash ? " flash" : ""}`}>
+              <div
+                key={p.id}
+                data-player-id={p.id}
+                className={`seat ${pos}${isActive ? " active" : ""}${isFlash ? " flash" : ""}${!p.isConnected ? " disconnected" : ""}`}
+              >
                 <div className="opponent-mini">
                   <div className="opponent-cards">
                     {Array.from({ length: Math.max(p.handSize, 1) }).map((_, i) => (
@@ -361,8 +525,10 @@ export default function GamePage() {
                     ))}
                   </div>
                   <div className="opponent-label">
+                    {isBot(p.id) && <span className="bot-badge">🤖</span>}
                     {p.name}
-                    {p.hasUno && <span className="uno-badge"> UNO!</span>}
+                    {!p.isConnected && !isBot(p.id) && <span className="disconnected-badge"> 📡</span>}
+                    {p.hasUno && p.isConnected !== false && <span className="uno-badge"> UNO!</span>}
                     {isActive && <span className="turn-arrow"> ▶</span>}
                   </div>
                 </div>
@@ -373,15 +539,52 @@ export default function GamePage() {
           {/* Table verte */}
           <section className="table">
 
-            {/* Défausse au centre */}
+            {/* Centre : pioche + défausse */}
             <div className="table-center-zone">
+
+              {/* Pioche (cliquable) */}
+              <div
+                ref={deckRef}
+                className={`draw-pile${isMyTurn ? " hoverable" : ""}`}
+                onClick={handleDraw}
+                title={isMyTurn ? "Piocher une carte" : undefined}
+              >
+                <div className="draw-stack-visual">
+                  <div className="stack-card-bg" style={{ transform: "translate(-3px,-3px)" }} />
+                  <div className="stack-card-bg" style={{ transform: "translate(-1px,-1px)" }} />
+                  <div className="draw-card-small">
+                    <Card card={{ color: "wild", value: "" }} faceDown noHover />
+                  </div>
+                </div>
+                <div className="deck-count-label">{deckSize} carte{deckSize !== 1 ? "s" : ""}</div>
+              </div>
+
+              {/* Défausse */}
               <div className="discard-pile" ref={discardRef}>
                 {topCard
-                  ? <Card card={topCard} />
+                  ? <Card card={topCard} noHover />
                   : <div style={{ width: 78, height: 112, borderRadius: 14, border: "2px dashed rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 12 }}>vide</div>
                 }
               </div>
+
             </div>
+
+            {/* Bouton UNO / Contre-UNO — même bouton, comportement contextuel */}
+            {status === "IN_PROGRESS" && (() => {
+              const counterTarget = counterUnoTargets[0];
+              const canUno = myHand.length <= 2 && !unoCalled.has(playerId);
+              const isActive = counterTarget != null || canUno;
+              return (
+                <button
+                  className={`table-uno-btn${isActive ? " active" : ""}`}
+                  disabled={!isActive}
+                  title={counterTarget ? `Contre-UNO sur ${counterTarget.name}` : "Annoncer UNO"}
+                  onClick={() => counterTarget ? handleCounterUno(counterTarget) : handleUno()}
+                >
+                  {counterTarget ? `Contre ! ${counterTarget.name}` : "UNO !"}
+                </button>
+              );
+            })()}
 
           </section>
         </div>
@@ -397,15 +600,7 @@ export default function GamePage() {
         }
       </section>
 
-      {/* ── Indicateur couleur active (fixe, au-dessus de la main) ── */}
-      {activeColor && status === "IN_PROGRESS" && (
-        <div className="active-color-pill">
-          <div className="active-color-dot" style={{ background: activeColorHex, boxShadow: `0 0 10px ${activeColorHex}` }} />
-          <span className="active-color-label">{COLOR_LABEL[activeColor] ?? activeColor}</span>
-        </div>
-      )}
-
-      {/* ── Panneau d'infos de partie ── */}
+      {/* ── Panneau d'infos ── */}
       {status === "IN_PROGRESS" && (
         <div className="game-info-panel">
           <div className="game-info-row">
@@ -420,29 +615,8 @@ export default function GamePage() {
             <span className="game-info-label">Sens</span>
             <span className="game-info-value">{direction === 1 ? "↻ Horaire" : "↺ Anti-H."}</span>
           </div>
-          <div className="game-info-row">
-            <span className="game-info-label">Pioche</span>
-            <span className="game-info-value">{gameState?.deckSize ?? "—"}</span>
-          </div>
         </div>
       )}
-
-      {/* ── Boutons fixes ── */}
-      <div className="fixed-controls">
-        <button className="btn" ref={deckRef} disabled={!isMyTurn} onClick={handleDraw}>
-          Pioche
-        </button>
-        <button
-          className="btn"
-          disabled={!isMyTurn || myHand.length > 2}
-          onClick={handleUno}
-          style={myHand.length <= 2 && isMyTurn
-            ? { background: "rgba(255,200,0,0.9)", borderColor: "#ffd700", color: "#2a0000", fontWeight: 900, boxShadow: "0 0 18px rgba(255,200,0,0.65)" }
-            : undefined}
-        >
-          UNO !
-        </button>
-      </div>
 
       {/* ── Toast erreur règles ── */}
       <AnimatePresence>
@@ -464,7 +638,7 @@ export default function GamePage() {
         )}
       </AnimatePresence>
 
-      {/* ── Notification pénalité / skip ── */}
+      {/* ── Notification ── */}
       <AnimatePresence>
         {notification && (
           <motion.div
@@ -489,9 +663,9 @@ export default function GamePage() {
         )}
       </AnimatePresence>
 
-      {/* ── Overlay UNO ! ── */}
+      {/* ── Overlay UNO ! (visible par tous les joueurs) ── */}
       <AnimatePresence>
-        {showUno && (
+        {unoOverlay && (
           <motion.div
             key="uno-overlay"
             initial={{ scale: 0.2, opacity: 0 }}
@@ -500,25 +674,159 @@ export default function GamePage() {
             transition={{ type: "spring", stiffness: 380, damping: 18 }}
             style={{
               position: "fixed", inset: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              zIndex: 9000, pointerEvents: "none",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              zIndex: 9000, pointerEvents: "none", gap: 8,
             }}
           >
             <span style={{
-              fontSize: "clamp(80px, 18vw, 180px)",
-              fontWeight: 900,
-              color: "#e53935",
+              fontSize: "clamp(80px, 18vw, 180px)", fontWeight: 900, color: "#e53935",
               textShadow: "0 0 40px rgba(229,57,53,0.9), 0 0 80px rgba(229,57,53,0.5), 5px 5px 0 #000",
-              letterSpacing: 10,
-              WebkitTextStroke: "3px #fff",
+              letterSpacing: 10, WebkitTextStroke: "3px #fff", lineHeight: 1,
             }}>
               UNO!
             </span>
+            {!unoOverlay.isMe && (
+              <span style={{
+                fontSize: "clamp(18px, 4vw, 32px)", fontWeight: 800,
+                color: "rgba(255,255,255,0.9)",
+                textShadow: "0 2px 12px rgba(0,0,0,0.8)",
+                letterSpacing: 2,
+              }}>
+                {unoOverlay.name}
+              </span>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Sélecteur de couleur (wild) ── */}
+      {/* ── Bannière reconnexion (non bloquante) ── */}
+      <AnimatePresence>
+        {isReconnecting && (
+          <motion.div
+            key="reconnecting-banner"
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            style={{
+              position: "fixed", top: "calc(var(--topbar-height, 56px) + 8px)",
+              left: "50%", transform: "translateX(-50%)",
+              background: "rgba(255,152,0,0.92)", color: "#1a0800",
+              padding: "9px 22px", borderRadius: 12, zIndex: 9200,
+              fontWeight: 800, fontSize: 13, letterSpacing: 0.5,
+              border: "1px solid rgba(255,200,80,0.6)",
+              boxShadow: "0 4px 16px rgba(255,152,0,0.4)",
+              pointerEvents: "none", whiteSpace: "nowrap",
+            }}
+          >
+            ↻ Reconnexion en cours… ({reconnectAttempt}/{reconnectMax})
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Overlay échec de connexion (bloquant) ── */}
+      <AnimatePresence>
+        {isFailed && (
+          <motion.div
+            key="failed-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={{
+              position: "fixed", inset: 0,
+              background: "rgba(0,0,0,0.88)",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              zIndex: 9800, gap: 20,
+            }}
+          >
+            <div style={{ fontSize: 64 }}>📡</div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: "white", textAlign: "center" }}>
+              Connexion perdue
+            </div>
+            <div style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", textAlign: "center", maxWidth: 320 }}>
+              Impossible de se reconnecter après {reconnectMax} tentatives.
+            </div>
+            <button
+              onClick={() => navigate("/")}
+              style={{
+                marginTop: 8, padding: "12px 36px", borderRadius: 14,
+                border: "none",
+                background: "linear-gradient(135deg, #e53935, #b71c1c)",
+                color: "white", fontWeight: 900, fontSize: 16,
+                cursor: "pointer",
+                boxShadow: "0 6px 20px rgba(229,57,53,0.4)",
+              }}
+            >
+              Retour à l'accueil
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Overlay Victoire ── */}
+      <AnimatePresence>
+        {winnerOverlay && (
+          <motion.div
+            key="winner-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "fixed", inset: 0,
+              background: "rgba(0,0,0,0.82)",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              zIndex: 9500, gap: 24,
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.3, opacity: 0, y: 40 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 320, damping: 20, delay: 0.1 }}
+              style={{ textAlign: "center" }}
+            >
+              <div style={{ fontSize: 80, lineHeight: 1, marginBottom: 8 }}>🏆</div>
+              <div style={{
+                fontSize: "clamp(36px, 8vw, 72px)", fontWeight: 900, color: "#ffd700",
+                textShadow: "0 0 40px rgba(255,215,0,0.8), 0 0 80px rgba(255,215,0,0.4), 4px 4px 0 rgba(0,0,0,0.6)",
+                letterSpacing: 4, WebkitTextStroke: "2px rgba(255,255,255,0.3)",
+              }}>
+                {winnerOverlay.name}
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: "rgba(255,255,255,0.85)", marginTop: 10, letterSpacing: 1 }}>
+                a remporté la partie !
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}
+            >
+              <div style={{ fontSize: 48, fontWeight: 900, color: "white", fontVariantNumeric: "tabular-nums", textShadow: "0 0 30px rgba(255,255,255,0.4)" }}>
+                {winnerOverlay.countdown}
+              </div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", letterSpacing: 1 }}>
+                Résultats dans {winnerOverlay.countdown}s
+              </div>
+              <button
+                onClick={() => navigate(`/end/${gameId}`, { state: winnerOverlay.navState })}
+                style={{
+                  marginTop: 8, padding: "10px 28px", borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  background: "rgba(255,255,255,0.12)",
+                  color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer",
+                }}
+              >
+                Voir les résultats →
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Sélecteur couleur wild ── */}
       {colorPicker && (
         <div style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
@@ -566,10 +874,10 @@ export default function GamePage() {
         {flyingCard && (
           <motion.div
             className="flying-layer"
-            initial={{ left: flyingCard.from.x, top: flyingCard.from.y, width: flyingCard.from.w, height: flyingCard.from.h, opacity: 1, scale: 1 }}
-            animate={{ left: flyingCard.to.x,   top: flyingCard.to.y,   width: flyingCard.to.w,   height: flyingCard.to.h,   opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 480, damping: 34 }}
+            initial={{ left: flyingCard.from.x, top: flyingCard.from.y, width: flyingCard.from.w, height: flyingCard.from.h, opacity: 1 }}
+            animate={{ left: flyingCard.to.x,   top: flyingCard.to.y,   width: flyingCard.to.w,   height: flyingCard.to.h,   opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 440, damping: 32 }}
             onAnimationComplete={() => {
               const cb = flyingDoneRef.current;
               flyingDoneRef.current = null;
@@ -577,7 +885,7 @@ export default function GamePage() {
               cb?.();
             }}
           >
-            <Card card={flyingCard.card} faceDown={flyingCard.faceDown} />
+            <Card card={flyingCard.card} faceDown={flyingCard.faceDown} noHover />
           </motion.div>
         )}
       </AnimatePresence>

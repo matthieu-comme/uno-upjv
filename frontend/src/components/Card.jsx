@@ -6,8 +6,8 @@ const colorMap = {
   wild:   "#111",
 };
 
-export default function Card({ card, faceDown = false, onClick }) {
-  const bg = faceDown ? "#111" : (colorMap[card.color] ?? "#222");
+export default function Card({ card, faceDown = false, onClick, noHover = false }) {
+  const bg = faceDown ? "#111" : (colorMap[card?.color] ?? "#222");
 
   return (
     <button
@@ -23,11 +23,10 @@ export default function Card({ card, faceDown = false, onClick }) {
         boxShadow: "0 10px 24px rgba(0,0,0,0.45)",
         position: "relative",
         overflow: "hidden",
-        transition: "transform 0.2s ease",
       }}
-      onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-10px)"}
-      onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0px)"}
-      title={faceDown ? "Carte" : `${card.color} ${card.value}`}
+      onMouseEnter={!noHover ? (e) => { e.currentTarget.style.transform = "translateY(-10px)"; } : undefined}
+      onMouseLeave={!noHover ? (e) => { e.currentTarget.style.transform = "translateY(0px)"; } : undefined}
+      title={faceDown ? "Carte" : `${card?.color} ${card?.value}`}
     >
       {/* Ellipse décorative */}
       <div style={{
@@ -46,7 +45,7 @@ export default function Card({ card, faceDown = false, onClick }) {
         fontWeight: 900,
         textShadow: "0 2px 8px rgba(0,0,0,0.5)",
       }}>
-        {faceDown ? "UNO" : card.value}
+        {faceDown ? "UNO" : card?.value}
       </div>
     </button>
   );

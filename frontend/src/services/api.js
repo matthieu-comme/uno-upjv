@@ -57,3 +57,25 @@ export function leaveGame(gameId, playerId) {
     body: JSON.stringify({ playerId }),
   });
 }
+
+/**
+ * Récupère l'état courant d'une partie pour un joueur donné.
+ * Requiert l'endpoint GET /api/games/{gameId}/state/{playerId} côté backend.
+ */
+export function getGameState(gameId, playerId) {
+  return request(`${BASE_URL}/${gameId}/state/${playerId}`);
+}
+
+export function callUno(gameId, playerId) {
+  return request(`${BASE_URL}/${gameId}/callUno`, {
+    method: 'POST',
+    body: JSON.stringify({ playerId }),
+  });
+}
+
+export function counterUno(gameId, callerId, targetId) {
+  return request(`${BASE_URL}/${gameId}/counterUno`, {
+    method: 'POST',
+    body: JSON.stringify({ callerId, targetId }),
+  });
+}
