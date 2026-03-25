@@ -1,4 +1,4 @@
-const BASE_URL = '/api/games';
+const BASE_URL = `${import.meta.env.VITE_API_URL ?? ''}/api/games`;
 
 async function request(url, options = {}) {
   const response = await fetch(url, {
@@ -66,16 +66,12 @@ export function getGameState(gameId, playerId) {
   return request(`${BASE_URL}/${gameId}/state/${playerId}`);
 }
 
+// UNO et Contre-UNO utilisent le même endpoint.
+// Le backend décide : si l'appelant a 1 carte → UNO annoncé,
+// sinon → pénalité +2 sur les adversaires non protégés.
 export function callUno(gameId, playerId) {
-  return request(`${BASE_URL}/${gameId}/callUno`, {
+  return request(`${BASE_URL}/${gameId}/uno`, {
     method: 'POST',
     body: JSON.stringify({ playerId }),
-  });
-}
-
-export function counterUno(gameId, callerId, targetId) {
-  return request(`${BASE_URL}/${gameId}/counterUno`, {
-    method: 'POST',
-    body: JSON.stringify({ callerId, targetId }),
   });
 }

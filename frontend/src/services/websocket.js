@@ -20,7 +20,7 @@ export function connectWebSocket(gameId, playerId, onGameUpdate, onStateChange) 
   let reconnectCount = 0;
 
   stompClient = new Client({
-    webSocketFactory: () => new SockJS('/ws-uno-upjv'),
+    webSocketFactory: () => new SockJS(`${import.meta.env.VITE_WS_URL ?? ''}/ws-uno-upjv`),
     reconnectDelay: 3000,
 
     onConnect: () => {

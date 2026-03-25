@@ -8,34 +8,11 @@ import {
   playCard as apiPlayCard,
   drawCard as apiDrawCard,
   callUno as apiCallUno,
-  counterUno as apiCounterUno,
   getGameState as apiGetGameState,
 } from "../services/api";
 import { connectWebSocket, disconnectWebSocket } from "../services/websocket";
 import "../styles/game.css";
 
-const MOCK_STATE = {
-  status: "IN_PROGRESS",
-  direction: 1,
-  activeColor: "RED",
-  currentPlayerIndex: 0,
-  deckSize: 42,
-  topCard: { id: "t1", color: "red", value: "7" },
-  myHand: [
-    { id: "h1", color: "red",    value: "3" },
-    { id: "h2", color: "blue",   value: "Skip" },
-    { id: "h3", color: "green",  value: "2" },
-    { id: "h4", color: "yellow", value: "9" },
-    { id: "h5", color: "wild",   value: "+4" },
-    { id: "h6", color: "red",    value: "Reverse" },
-    { id: "h7", color: "blue",   value: "1" },
-  ],
-  players: [
-    { id: "mock-me", name: "Toi (mock)", handSize: 7, hasUno: false },
-    { id: "mock-a",  name: "Alice",      handSize: 4, hasUno: false },
-    { id: "mock-b",  name: "Bob",        handSize: 1, hasUno: true  },
-  ],
-};
 
 const COLOR_MAP   = { RED: "#e53935", BLUE: "#1e88e5", GREEN: "#43a047", YELLOW: "#fdd835" };
 const COLOR_LABEL = { RED: "ROUGE",   BLUE: "BLEU",    GREEN: "VERT",    YELLOW: "JAUNE"   };
@@ -78,19 +55,17 @@ export default function GamePage() {
   const { state: navState } = useLocation();
   const navigate = useNavigate();
 
-  const rawPlayerId = navState?.playerId;
-  const isMock = !rawPlayerId;
-  const playerId = isMock ? "mock-me" : rawPlayerId;
+  const playerId = navState?.playerId;
   // IDs des joueurs humains passés depuis le lobby — les autres sont des bots
   const humanPlayerIds = useMemo(
     () => new Set(navState?.humanPlayerIds ?? []),
     [navState?.humanPlayerIds]
   );
-  const isBot = (id) => !isMock && humanPlayerIds.size > 0 && !humanPlayerIds.has(id);
+  const isBot = (id) => humanPlayerIds.size > 0 && !humanPlayerIds.has(id);
 
-  const [gameState, setGameState] = useState(isMock ? MOCK_STATE : normalizeState(navState?.initialState));
-  // "mock" | "connecting" | "connected" | "reconnecting:N:MAX" | "failed"
-  const [wsStatus, setWsStatus] = useState(isMock ? "mock" : "connecting");
+  const [gameState, setGameState] = useState(normalizeState(navState?.initialState));
+  // "connecting" | "connected" | "reconnecting:N:MAX" | "failed"
+  const [wsStatus, setWsStatus] = useState("connecting");
   // { name, isMe } — visible par tout le monde quand un joueur passe à 1 carte
   const [unoOverlay, setUnoOverlay] = useState(null);
   const [ruleError, setRuleError] = useState("");
@@ -98,15 +73,15 @@ export default function GamePage() {
   const [flashSeatId, setFlashSeatId] = useState(null);
   const [colorPicker, setColorPicker] = useState(null);
   const [winnerOverlay, setWinnerOverlay] = useState(null);
-  // Suivi local des joueurs ayant annoncé UNO (Set de player IDs)
-  const [unoCalled, setUnoCalled] = useState(new Set());
+  // L'état UNO est entièrement géré par le backend via isUnoCalled dans PlayerDTO
 
-  const deckRef      = useRef(null);
-  const discardRef   = useRef(null);
-  const handZoneRef  = useRef(null);
-  const prevStateRef = useRef(null);
+  const deckRef        = useRef(null);
+  const discardRef     = useRef(null);
+  const handZoneRef    = useRef(null);
+  const prevStateRef   = useRef(null);
   const [flyingCard, setFlyingCard] = useState(null);
-  const flyingDoneRef = useRef(null);
+  const flyingDoneRef  = useRef(null);
+  const unoTimerRef    = useRef(null);
 
   // ─── Countdown overlay gagnant ───────────────────────────────────────────────
   useEffect(() => {
@@ -123,7 +98,6 @@ export default function GamePage() {
 
   // ─── Nettoyage fermeture onglet ──────────────────────────────────────────────
   useEffect(() => {
-    if (isMock) return;
     const handleUnload = () => {
       navigator.sendBeacon(
         `/api/games/${gameId}/leave`,
@@ -132,11 +106,11 @@ export default function GamePage() {
     };
     window.addEventListener("beforeunload", handleUnload);
     return () => window.removeEventListener("beforeunload", handleUnload);
-  }, [gameId, playerId, isMock]);
+  }, [gameId, playerId]);
 
   // ─── WebSocket ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (isMock) return;
+    if (!gameId || !playerId) return;
     connectWebSocket(
       gameId,
       playerId,
@@ -172,13 +146,11 @@ export default function GamePage() {
       }
     );
     return () => disconnectWebSocket();
-  }, [gameId, playerId, isMock, navigate]);
+  }, [gameId, playerId, navigate]);
 
   // ─── Polling fallback quand c'est le tour d'un bot ───────────────────────────
-  // Actif uniquement si le backend ne diffuse pas encore après les tours de bot.
-  // Nécessite GET /api/games/{gameId}/state/{playerId} côté backend.
   useEffect(() => {
-    if (isMock) return;
+    if (!gameId || !playerId) return;
     const currentPlayerId = gameState?.players?.[gameState?.currentPlayerIndex]?.id;
     const botIsPlaying = currentPlayerId && isBot(currentPlayerId) && gameState?.status === "IN_PROGRESS";
     if (!botIsPlaying) return;
@@ -194,7 +166,7 @@ export default function GamePage() {
 
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.status, gameId, playerId, isMock]);
+  }, [gameState?.currentPlayerIndex, gameState?.status, gameId, playerId]);
 
   // ─── Détection des événements de jeu ────────────────────────────────────────
   useEffect(() => {
@@ -239,13 +211,17 @@ export default function GamePage() {
         setTimeout(() => setFlashSeatId(null), 900);
       }
 
-      // Détecter quand un joueur passe à 1 carte → overlay UNO visible par tous
+      // Overlay UNO : déclenché quand un joueur passe à 1 carte (handSize 2→1)
+      // handSize est toujours dans le broadcast → visible sur TOUS les écrans simultanément
       for (const p of gameState.players ?? []) {
         const prevP = prev.players?.find(q => q.id === p.id);
-        if (p.handSize === 1 && prevP && prevP.handSize > 1) {
-          const isMe = p.id === playerId;
-          setUnoOverlay({ name: p.name, isMe });
-          setTimeout(() => setUnoOverlay(null), 2200);
+        const droppedToOne = prevP && prevP.handSize >= 2 && p.handSize === 1;
+        const unoCalled    = p.isUnoCalled && prevP && !prevP.isUnoCalled;
+        if (droppedToOne || unoCalled) {
+          clearTimeout(unoTimerRef.current);
+          setUnoOverlay({ name: p.name, isMe: p.id === playerId });
+          unoTimerRef.current = setTimeout(() => setUnoOverlay(null), 2200);
+          break;
         }
       }
 
@@ -260,18 +236,13 @@ export default function GamePage() {
         showNotification(`🤖 ${newCurrentPlayer.name} réfléchit…`, 2000);
       }
 
-      // Nettoyer UNO annoncé quand un joueur n'a plus 1 carte
-      setUnoCalled(prev => {
-        let changed = false;
-        const next = new Set(prev);
-        for (const p of gameState.players ?? []) {
-          if (p.handSize !== 1 && next.has(p.id)) {
-            next.delete(p.id);
-            changed = true;
-          }
+      // Notification Contre-UNO : un adversaire avec 1 carte vient de piocher 2
+      for (const p of gameState.players ?? []) {
+        const prevP = prev.players?.find(q => q.id === p.id);
+        if (p.id !== playerId && prevP && prevP.handSize === 1 && p.handSize === 3) {
+          showNotification(`💀 Contre-UNO ! ${p.name} pioche 2 cartes !`, 3000);
         }
-        return changed ? next : prev;
-      });
+      }
     }
 
     prevStateRef.current = gameState;
@@ -295,10 +266,11 @@ export default function GamePage() {
   const reconnectAttempt = reconnectParts[1] ? parseInt(reconnectParts[1]) : 0;
   const reconnectMax     = reconnectParts[2] ? parseInt(reconnectParts[2]) : 5;
 
-  // Adversaires ayant 1 carte sans avoir annoncé UNO → cibles Contre-UNO
+  // Adversaires ayant 1 carte sans UNO annoncé → source de vérité : backend
+  const myPlayerData      = players.find(p => p.id === playerId);
   const counterUnoTargets = useMemo(
-    () => players.filter(p => p.id !== playerId && p.handSize === 1 && !unoCalled.has(p.id)),
-    [players, playerId, unoCalled]
+    () => players.filter(p => p.id !== playerId && p.handSize === 1 && !p.isUnoCalled),
+    [players, playerId]
   );
 
   // Placement des adversaires en sens horaire depuis ma position dans la liste
@@ -361,18 +333,6 @@ export default function GamePage() {
   }
 
   async function executePlayCard(card, sourceEl, chosenColor) {
-    if (isMock) {
-      animateCard(card, sourceEl, discardRef.current, () => {
-        setGameState(prev => ({
-          ...prev,
-          topCard: card,
-          activeColor: chosenColor ?? (card.color === "wild" ? prev.activeColor : card.color.toUpperCase()),
-          myHand: prev.myHand.filter(c => c.id !== card.id),
-        }));
-      });
-      return;
-    }
-
     try {
       // Animation départ immédiate, même avant la réponse du serveur
       animateCard(card, sourceEl, discardRef.current, () => {});
@@ -393,45 +353,32 @@ export default function GamePage() {
 
     if (from && handZone) {
       const to = { x: handZone.x + handZone.w / 2 - 39, y: handZone.y + 20, w: 78, h: 112 };
-
-      if (isMock) {
-        const colors  = ["red", "blue", "green", "yellow"];
-        const values  = ["0","1","2","3","4","5","6","7","8","9","Skip","Reverse","+2"];
-        const color   = colors[Math.floor(Math.random() * colors.length)];
-        const value   = values[Math.floor(Math.random() * values.length)];
-        const newCard = { id: `drawn-${Date.now()}`, color, value };
-        setFlyingCard({ card: { color: "wild", value: "" }, faceDown: true, from, to, key: crypto.randomUUID?.() ?? String(Date.now()) });
-        flyingDoneRef.current = () => setGameState(prev => ({ ...prev, myHand: [...prev.myHand, newCard] }));
-        return;
-      }
-
-      // Mode réel : animation en avance, le WS apportera la mise à jour
       setFlyingCard({ card: { color: "wild", value: "" }, faceDown: true, from, to, key: crypto.randomUUID?.() ?? String(Date.now()) });
       flyingDoneRef.current = null;
     }
 
-    if (!isMock) {
-      apiDrawCard(gameId, playerId).catch(e => showError(e.message));
-    }
+    apiDrawCard(gameId, playerId).catch(e => showError(e.message));
   }
 
-  // ─── UNO ─────────────────────────────────────────────────────────────────────
+  // ─── UNO & Contre-UNO ────────────────────────────────────────────────────────
+  // Même endpoint /uno pour les deux cas.
+  // Le backend décide : appelant avec 1 carte → UNO annoncé,
+  // sinon → pénalité +2 sur les adversaires avec 1 carte non protégés.
   function handleUno() {
-    if (myHand.length > 2) {
-      showError("UNO ! Seulement quand il te reste 1 ou 2 cartes.");
-      return;
-    }
-    setUnoCalled(prev => new Set([...prev, playerId]));
-    setUnoOverlay({ name: navState?.playerName ?? "Toi", isMe: true });
-    setTimeout(() => setUnoOverlay(null), 2200);
+    if (myHand.length !== 1 || myPlayerData?.isUnoCalled) return;
+    clearTimeout(unoTimerRef.current);
+    setUnoOverlay({ name: myPlayerData?.name ?? "Moi", isMe: true });
+    unoTimerRef.current = setTimeout(() => setUnoOverlay(null), 2200);
     apiCallUno(gameId, playerId).catch(() => {});
   }
 
-  // ─── Contre-UNO ──────────────────────────────────────────────────────────────
-  function handleCounterUno(target) {
-    setUnoCalled(prev => new Set([...prev, target.id]));
-    showNotification(`💀 Contre-UNO ! ${target.name} pioche 2 cartes !`, 3000);
-    apiCounterUno(gameId, playerId, target.id).catch(() => {});
+  function handleCounterUno() {
+    if (counterUnoTargets.length === 0) return;
+    const target = counterUnoTargets[0];
+    clearTimeout(unoTimerRef.current);
+    setUnoOverlay({ name: target.name, isMe: false, isCounter: true });
+    unoTimerRef.current = setTimeout(() => setUnoOverlay(null), 2200);
+    apiCallUno(gameId, playerId).catch(() => {});
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────────
@@ -485,21 +432,18 @@ export default function GamePage() {
 
         <div style={{
           fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
-          background: wsStatus === "mock"      ? "rgba(255,193,7,0.2)"
-                    : wsStatus === "connected" ? "rgba(67,160,71,0.3)"
-                    : isFailed                 ? "rgba(229,57,53,0.3)"
-                    : isReconnecting           ? "rgba(255,152,0,0.3)"
+          background: wsStatus === "connected" ? "rgba(67,160,71,0.3)"
+                    : isFailed               ? "rgba(229,57,53,0.3)"
+                    : isReconnecting         ? "rgba(255,152,0,0.3)"
                     : "rgba(255,255,255,0.1)",
-          color: wsStatus === "mock"      ? "#ffe082"
-               : wsStatus === "connected" ? "#a5d6a7"
-               : isFailed                 ? "#ff8a80"
-               : isReconnecting           ? "#ffcc80"
+          color: wsStatus === "connected" ? "#a5d6a7"
+               : isFailed               ? "#ff8a80"
+               : isReconnecting         ? "#ffcc80"
                : "#ccc",
         }}>
-          {wsStatus === "mock"      ? "◆ Mock"
-         : wsStatus === "connected" ? "● Connecté"
-         : isFailed                 ? "● Hors ligne"
-         : isReconnecting           ? `↻ Reconnexion… (${reconnectAttempt}/${reconnectMax})`
+          {wsStatus === "connected" ? "● Connecté"
+         : isFailed               ? "● Hors ligne"
+         : isReconnecting         ? `↻ Reconnexion… (${reconnectAttempt}/${reconnectMax})`
          : "○ Connexion…"}
         </div>
       </header>
@@ -528,7 +472,7 @@ export default function GamePage() {
                     {isBot(p.id) && <span className="bot-badge">🤖</span>}
                     {p.name}
                     {!p.isConnected && !isBot(p.id) && <span className="disconnected-badge"> 📡</span>}
-                    {p.hasUno && p.isConnected !== false && <span className="uno-badge"> UNO!</span>}
+                    {p.isUnoCalled && <span className="uno-badge"> UNO!</span>}
                     {isActive && <span className="turn-arrow"> ▶</span>}
                   </div>
                 </div>
@@ -553,7 +497,7 @@ export default function GamePage() {
                   <div className="stack-card-bg" style={{ transform: "translate(-3px,-3px)" }} />
                   <div className="stack-card-bg" style={{ transform: "translate(-1px,-1px)" }} />
                   <div className="draw-card-small">
-                    <Card card={{ color: "wild", value: "" }} faceDown noHover />
+                    <Card card={{ color: "wild", value: "" }} faceDown />
                   </div>
                 </div>
                 <div className="deck-count-label">{deckSize} carte{deckSize !== 1 ? "s" : ""}</div>
@@ -562,7 +506,7 @@ export default function GamePage() {
               {/* Défausse */}
               <div className="discard-pile" ref={discardRef}>
                 {topCard
-                  ? <Card card={topCard} noHover />
+                  ? <Card card={topCard} />
                   : <div style={{ width: 78, height: 112, borderRadius: 14, border: "2px dashed rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 12 }}>vide</div>
                 }
               </div>
@@ -571,15 +515,17 @@ export default function GamePage() {
 
             {/* Bouton UNO / Contre-UNO — même bouton, comportement contextuel */}
             {status === "IN_PROGRESS" && (() => {
-              const counterTarget = counterUnoTargets[0];
-              const canUno = myHand.length <= 2 && !unoCalled.has(playerId);
-              const isActive = counterTarget != null || canUno;
+              const counterTarget  = counterUnoTargets[0];
+              const canUno         = myHand.length === 1 && !myPlayerData?.isUnoCalled;
+              // Bloqué si quelqu'un a déjà appelé UNO (source de vérité : backend)
+              const someoneCalledUno = players.some(p => p.isUnoCalled);
+              const isActive       = (counterTarget != null || canUno) && !someoneCalledUno;
               return (
                 <button
                   className={`table-uno-btn${isActive ? " active" : ""}`}
                   disabled={!isActive}
                   title={counterTarget ? `Contre-UNO sur ${counterTarget.name}` : "Annoncer UNO"}
-                  onClick={() => counterTarget ? handleCounterUno(counterTarget) : handleUno()}
+                  onClick={() => counterTarget ? handleCounterUno() : handleUno()}
                 >
                   {counterTarget ? `Contre ! ${counterTarget.name}` : "UNO !"}
                 </button>
@@ -693,7 +639,7 @@ export default function GamePage() {
                 textShadow: "0 2px 12px rgba(0,0,0,0.8)",
                 letterSpacing: 2,
               }}>
-                {unoOverlay.name}
+                {unoOverlay.isCounter ? `💀 Contre-UNO sur ${unoOverlay.name} !` : unoOverlay.name}
               </span>
             )}
           </motion.div>
@@ -885,7 +831,7 @@ export default function GamePage() {
               cb?.();
             }}
           >
-            <Card card={flyingCard.card} faceDown={flyingCard.faceDown} noHover />
+            <Card card={flyingCard.card} faceDown={flyingCard.faceDown} />
           </motion.div>
         )}
       </AnimatePresence>
