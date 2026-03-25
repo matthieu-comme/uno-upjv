@@ -17,16 +17,14 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-// TODO: Client le sens de rotation n'est pas raccord avec le placement des joueurs. il faut donc fix la position des joueurs dans l'interface.
+// TODO: ? Client le sens de rotation n'est pas raccord avec le placement des joueurs. il faut donc fix la position des joueurs dans l'interface.
 // TODO: Client pouvoir annuler le choix d'une couleur quand on joue un joker ou +4
-// TODO: Serveur fix le reverse à 2 joueurs.
 // TODO: Serveur gérer situation uno, contre_uno
-// TODO: Client voir pioche et son nombre de cartes
 // TODO: Client doit bloquer quand on rejoint directement via le lien et non par le menu
 // TODO: Client timer limitant le temps de jeu par action
 // TODO: Client Mieux gérer l'erreur quand on rejoint une salle pleine
 // TODO: Client Afficher dans le lobby par exemple nb joueurs 2/4
-// TODO: Serveur Bonne pioche
+// TODO: Bonus Serveur Bonne pioche
 
 /**
  * Contrôleur REST gérant les requêtes liées aux parties de Uno.

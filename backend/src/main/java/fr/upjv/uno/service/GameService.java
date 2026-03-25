@@ -395,6 +395,20 @@ public class GameService {
     Game game = getGame(gameId);
     Player currentPlayer = game.getCurrentPlayer();
 
+    if (currentPlayer == null) return;
+
+    if (!currentPlayer.isConnected() && !(currentPlayer instanceof AIPlayer)) {
+      CompletableFuture.delayedExecutor(1000, TimeUnit.MILLISECONDS).execute(() -> {
+        try {
+          chooseToDraw(gameId, currentPlayer.getId());
+          if (broadcastCallback != null) broadcastCallback.accept(getGame(gameId));
+        } catch (Exception e) {
+          System.err.println("Tour auto joueur déconnecté : " + e.getMessage());
+        }
+      });
+      return;
+    }
+
     if (!(currentPlayer instanceof AIPlayer bot)) {
       return;
     }
