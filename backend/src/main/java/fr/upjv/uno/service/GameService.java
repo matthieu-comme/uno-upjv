@@ -482,4 +482,25 @@ public class GameService {
     }
   }
 
+  /**
+   * Cherche le joueur qui tente de se reconnecter et notifie les autres.
+   * @param gameId Identifiant de la partie en cours.
+   * @param playerId Identifiant du joueur qui se reconnecte.
+   */
+  public void reconnectPlayer(String gameId, String playerId) {
+    Game game = getGame(gameId);
+    Player player = game.getPlayers().stream()
+            .filter(p -> p.getId().equals(playerId))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("Joueur introuvable"));
+
+    if (!player.isConnected()) {
+      player.setConnected(true);
+
+      if (broadcastCallback != null) {
+        broadcastCallback.accept(game);
+      }
+    }
+  }
+
 }

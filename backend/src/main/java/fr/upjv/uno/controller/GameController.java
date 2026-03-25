@@ -235,6 +235,24 @@ public class GameController {
     }
   }
 
+  /**
+   * Signale au serveur qu'un joueur s'est reconnecté.
+   * @param gameId Identifiant de la partie.
+   * @param playerId Identifiant du joueur.
+   * @return OK si le joueur est reconnecté, BadRequest sinon.
+   */
+  @PostMapping("/{gameId}/reconnect/{playerId}")
+  public ResponseEntity<Void> reconnectPlayer(
+          @PathVariable String gameId,
+          @PathVariable String playerId) {
+    try {
+      gameService.reconnectPlayer(gameId, playerId);
+      return ResponseEntity.ok().build();
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.notFound().build();
+    }
+  }
+
   private void broadcastGameState(Game game) {
     for (Player player : game.getPlayers()) {
       messagingTemplate.convertAndSend(
