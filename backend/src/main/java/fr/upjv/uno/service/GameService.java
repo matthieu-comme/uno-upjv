@@ -6,12 +6,14 @@ import fr.upjv.uno.model.enums.Color;
 import fr.upjv.uno.model.enums.Difficulty;
 import fr.upjv.uno.model.enums.GameStatus;
 import fr.upjv.uno.util.GameCodeGenerator;
+import lombok.Setter;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * Gère la logique des parties.
@@ -21,6 +23,9 @@ public class GameService {
   private final Map<String, Game> activeGames;
   // sessionId -> [gameId, playerId]
   private final Map<String, String[]> sessionPlayerMap = new ConcurrentHashMap<>();
+
+  @Setter
+  private Consumer<Game> broadcastCallback;
   private final DeckFactory deckFactory;
 
   /**
@@ -411,6 +416,10 @@ public class GameService {
         } else { // aucune carte jouable
           chooseToDraw(gameId, bot.getId());
         }
+        if (broadcastCallback != null)
+        {
+          broadcastCallback.accept(getGame(gameId));
+        }
       } catch (Exception e) {
         System.err.println("Erreur lors du tour du bot : " + e.getMessage());
       }
@@ -448,7 +457,8 @@ public class GameService {
         Player p = game.findPlayerById(playerId);
         if (p != null) {
           p.setConnected(false);
-          // Si c'est son tour, on déclenche l'IA
+          broadcastCallback.accept(game);
+          // on déclenche le bot, si c'est son tour
           if (game.getCurrentPlayer().getId().equals(playerId)) {
             playBotTurn(gameId);
           }
@@ -457,4 +467,5 @@ public class GameService {
       }
     }
   }
+
 }

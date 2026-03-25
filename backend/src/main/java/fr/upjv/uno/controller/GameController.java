@@ -53,6 +53,7 @@ public class GameController {
   public GameController(GameService gameService, SimpMessagingTemplate messagingTemplate) {
     this.gameService = gameService;
     this.messagingTemplate = messagingTemplate;
+    gameService.setBroadcastCallback(this::broadcastGameState);
   }
 
   /**
@@ -214,6 +215,25 @@ public class GameController {
       return ResponseEntity.ok().build();
     } catch (IllegalArgumentException e) {
       return ResponseEntity.badRequest().build();
+    }
+  }
+
+  /**
+   * Retourne l'état courant de la partie pour un joueur donné (utilisé par le polling frontend).
+   *
+   * @param gameId   Identifiant de la partie.
+   * @param playerId Identifiant du joueur.
+   * @return GameStateDTO filtré pour ce joueur.
+   */
+  @GetMapping("/{gameId}/state/{playerId}")
+  public ResponseEntity<GameStateDTO> getGameState(
+          @PathVariable String gameId,
+          @PathVariable String playerId) {
+    try {
+      Game game = gameService.getGame(gameId);
+      return ResponseEntity.ok(mapToGameStateDTO(game, playerId));
+    } catch (IllegalArgumentException e) {
+      return ResponseEntity.notFound().build();
     }
   }
 
