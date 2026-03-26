@@ -254,10 +254,9 @@ public class GameService {
 
     switch (card.getValue()) {
       case REVERSE -> {
-        if (game.getMaxPlayers() == 2)
+        if (game.getMaxPlayers() == 2) // rustine pour les games à 2 joueurs
           game.updateCurrentPlayerIndex();
-        else
-          game.reverseDirection();
+        game.reverseDirection();
       }
       case SKIP -> game.updateCurrentPlayerIndex();
       case DRAW_TWO -> {
@@ -430,8 +429,7 @@ public class GameService {
         } else { // aucune carte jouable
           chooseToDraw(gameId, bot.getId());
         }
-        if (broadcastCallback != null)
-        {
+        if (broadcastCallback != null) {
           broadcastCallback.accept(getGame(gameId));
         }
       } catch (Exception e) {
@@ -484,7 +482,8 @@ public class GameService {
 
   /**
    * Cherche le joueur qui tente de se reconnecter et notifie les autres.
-   * @param gameId Identifiant de la partie en cours.
+   *
+   * @param gameId   Identifiant de la partie en cours.
    * @param playerId Identifiant du joueur qui se reconnecte.
    */
   public void reconnectPlayer(String gameId, String playerId) {
