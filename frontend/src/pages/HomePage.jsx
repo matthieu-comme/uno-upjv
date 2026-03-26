@@ -123,7 +123,7 @@ export default function HomePage() {
       const state = await joinGame(game.gameId, playerName.trim());
       const me    = state.players.find(p => p.name === playerName.trim());
       navigate(`/lobby/${game.gameId}`, {
-        state: { playerId: me?.id, gameId: game.gameId, playerName: playerName.trim(), players: state.players },
+        state: { playerId: me?.id, gameId: game.gameId, playerName: playerName.trim(), players: state.players, maxPlayers },
       });
     } catch (e) {
       setError(e.message);

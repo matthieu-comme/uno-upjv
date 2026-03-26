@@ -11,16 +11,19 @@ export default function LobbyPage() {
   const playerId   = navState?.playerId;
   const playerName = navState?.playerName;
 
-  const [players,    setPlayers]    = useState(navState?.players ?? []);
-  const [copied,     setCopied]     = useState(false);
-  const [startError, setStartError] = useState("");
-  const [starting,   setStarting]   = useState(false);
+  const [players,        setPlayers]        = useState(navState?.players ?? []);
+  const [copied,         setCopied]         = useState(false);
+  const [startError,     setStartError]     = useState("");
+  const [starting,       setStarting]       = useState(false);
+  const [showBotConfirm, setShowBotConfirm] = useState(false);
   const hasLeftRef = useRef(false);
 
   const isCreator    = players.length > 0 && players[0]?.id === playerId;
   const canStart     = isCreator && players.length >= 1;
   const maxPlayers   = navState?.maxPlayers ?? null;
-  const botsNeeded   = maxPlayers ? Math.max(0, maxPlayers - players.length) : 0;
+  const botsNeeded   = (maxPlayers != null && maxPlayers > players.length)
+    ? maxPlayers - players.length
+    : 0;
 
   // ── WebSocket ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -71,10 +74,15 @@ export default function LobbyPage() {
   }
 
   async function handleStart() {
+    if (botsNeeded > 0) { setShowBotConfirm(true); return; }
+    await doStart();
+  }
+
+  async function doStart() {
+    setShowBotConfirm(false);
     setStarting(true);
     try {
       await startGame(gameId);
-      // Le WS recevra le status IN_PROGRESS et redirigera automatiquement
     } catch (e) {
       setStartError(e.message ?? "Impossible de démarrer la partie");
       setTimeout(() => setStartError(""), 3000);
@@ -190,6 +198,58 @@ export default function LobbyPage() {
           Quitter
         </button>
       </div>
+
+      {/* ── Modale confirmation bots ── */}
+      {showBotConfirm && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 999,
+          background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: "linear-gradient(135deg, #1e1e3a, #16213e)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: 20, padding: "36px 40px",
+            maxWidth: 380, width: "90%", textAlign: "center",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🤖</div>
+            <h2 style={{ margin: "0 0 12px", fontSize: 22, fontWeight: 900 }}>
+              Partie incomplète
+            </h2>
+            <p style={{ margin: "0 0 24px", opacity: 0.7, fontSize: 15, lineHeight: 1.6 }}>
+              Il manque <strong style={{ color: "#fdd835" }}>
+                {botsNeeded} bot{botsNeeded > 1 ? "s" : ""}
+              </strong> pour compléter la partie ({players.length}/{maxPlayers} joueurs).<br />
+              Les places vides seront remplies automatiquement.
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={() => setShowBotConfirm(false)}
+                style={{
+                  flex: 1, padding: "11px 0", borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  background: "transparent", color: "rgba(255,255,255,0.6)",
+                  cursor: "pointer", fontSize: 14, fontWeight: 700,
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={doStart}
+                style={{
+                  flex: 1, padding: "11px 0", borderRadius: 10, border: "none",
+                  background: "linear-gradient(135deg, #43a047, #2e7d32)",
+                  color: "white", cursor: "pointer", fontSize: 14, fontWeight: 900,
+                  letterSpacing: 0.5,
+                }}
+              >
+                Lancer quand même
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
