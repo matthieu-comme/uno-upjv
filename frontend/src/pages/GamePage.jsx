@@ -9,6 +9,7 @@ import {
   drawCard as apiDrawCard,
   callUno as apiCallUno,
   getGameState as apiGetGameState,
+  reconnectPlayer as apiReconnectPlayer,
 } from "../services/api";
 import { connectWebSocket, disconnectWebSocket } from "../services/websocket";
 import "../styles/game.css";
@@ -50,16 +51,39 @@ function isCardPlayable(card, topCard, activeColor) {
   return card.color === active || card.value === topCard.value;
 }
 
+const SESSION_KEY = 'uno-session';
+
+function saveSession(data) {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(data)); } catch {}
+}
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { return null; }
+}
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch {}
+}
+
 export default function GamePage() {
   const { gameId } = useParams();
   const { state: navState } = useLocation();
   const navigate = useNavigate();
 
-  const playerId = navState?.playerId;
+  // Session : navState (navigation normale) ou localStorage (reconnexion après fermeture)
+  const savedSession = useMemo(() => {
+    if (navState?.playerId) return null;
+    const s = loadSession();
+    return s?.gameId === gameId ? s : null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const playerId       = navState?.playerId       ?? savedSession?.playerId;
+  const isRejoining    = !navState?.playerId && !!savedSession?.playerId;
+
   // IDs des joueurs humains passés depuis le lobby — les autres sont des bots
   const humanPlayerIds = useMemo(
-    () => new Set(navState?.humanPlayerIds ?? []),
-    [navState?.humanPlayerIds]
+    () => new Set(navState?.humanPlayerIds ?? savedSession?.humanPlayerIds ?? []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
   const isBot = (id) => humanPlayerIds.size > 0 && !humanPlayerIds.has(id);
 
@@ -73,6 +97,7 @@ export default function GamePage() {
   const [flashSeatId, setFlashSeatId] = useState(null);
   const [colorPicker, setColorPicker] = useState(null);
   const [winnerOverlay, setWinnerOverlay] = useState(null);
+  const [turnTimeLeft, setTurnTimeLeft] = useState(30);
   // L'état UNO est entièrement géré par le backend via isUnoCalled dans PlayerDTO
 
   const deckRef        = useRef(null);
@@ -96,17 +121,27 @@ export default function GamePage() {
     return () => clearTimeout(t);
   }, [winnerOverlay, gameId, navigate]);
 
-  // ─── Nettoyage fermeture onglet ──────────────────────────────────────────────
+  // ─── Sauvegarde session dans localStorage (permet la reconnexion) ────────────
   useEffect(() => {
-    const handleUnload = () => {
-      navigator.sendBeacon(
-        `/api/games/${gameId}/leave`,
-        new Blob([JSON.stringify({ playerId })], { type: "application/json" })
-      );
-    };
-    window.addEventListener("beforeunload", handleUnload);
-    return () => window.removeEventListener("beforeunload", handleUnload);
-  }, [gameId, playerId]);
+    if (!gameId || !playerId) return;
+    saveSession({
+      gameId,
+      playerId,
+      playerName:     navState?.playerName ?? savedSession?.playerName,
+      humanPlayerIds: [...humanPlayerIds],
+    });
+  }, [gameId, playerId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Reconnexion automatique si retour après fermeture onglet ────────────────
+  useEffect(() => {
+    if (!isRejoining || !gameId || !playerId) return;
+    // Signale au backend que le joueur est de retour
+    apiReconnectPlayer(gameId, playerId).catch(() => {});
+    // Charge l'état courant immédiatement
+    apiGetGameState(gameId, playerId)
+      .then(s => { if (s) setGameState(normalizeState(s)); })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── WebSocket ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -122,6 +157,7 @@ export default function GamePage() {
 
         if (isFinished) {
           disconnectWebSocket();
+          clearSession();
           const w = state.players?.find(p => p.handSize === 0)
                  ?? state.players?.[state.currentPlayerIndex];
           const endNavState = {
@@ -129,7 +165,7 @@ export default function GamePage() {
             winnerId:   w?.id,
             players:    state.players,
             playerId,
-            playerName: navState?.playerName,
+            playerName: navState?.playerName ?? savedSession?.playerName,
             gameId,
           };
           setWinnerOverlay({ name: w?.name ?? "Inconnu", countdown: 10, navState: endNavState });
@@ -167,6 +203,29 @@ export default function GamePage() {
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.currentPlayerIndex, gameState?.status, gameId, playerId]);
+
+  // ─── Timer de tour (30 s) ────────────────────────────────────────────────────
+  // NOTE : status et isMyTurn ne sont pas encore déclarés ici → on lit gameState directement
+  const TURN_DURATION = 30;
+
+  useEffect(() => {
+    const s = gameState?.status ?? "WAITING_FOR_PLAYERS";
+    if (s !== "IN_PROGRESS") { setTurnTimeLeft(TURN_DURATION); return; }
+    setTurnTimeLeft(TURN_DURATION);
+    const iv = setInterval(() => setTurnTimeLeft(t => Math.max(0, t - 1)), 1000);
+    return () => clearInterval(iv);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState?.currentPlayerIndex, gameState?.status]);
+
+  useEffect(() => {
+    const s         = gameState?.status ?? "WAITING_FOR_PLAYERS";
+    const curId     = gameState?.players?.[gameState?.currentPlayerIndex]?.id;
+    const myTurn    = curId === playerId;
+    if (turnTimeLeft === 0 && s === "IN_PROGRESS" && myTurn) {
+      apiDrawCard(gameId, playerId).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnTimeLeft]);
 
   // ─── Détection des événements de jeu ────────────────────────────────────────
   useEffect(() => {
@@ -211,15 +270,25 @@ export default function GamePage() {
         setTimeout(() => setFlashSeatId(null), 900);
       }
 
-      // Overlay UNO : déclenché quand un joueur passe à 1 carte (handSize 2→1)
+      // Overlay UNO : déclenché uniquement quand isUnoCalled passe à true (bouton pressé)
+      // isUnoCalled est dans le broadcast → visible sur TOUS les écrans simultanément
+      for (const p of gameState.players ?? []) {
+        const prevP = prev.players?.find(q => q.id === p.id);
+        if (p.isUnoCalled && prevP && !prevP.isUnoCalled) {
+          clearTimeout(unoTimerRef.current);
+          setUnoOverlay({ name: p.name, isMe: p.id === playerId });
+          unoTimerRef.current = setTimeout(() => setUnoOverlay(null), 2200);
+          break;
+        }
+      }
+
+      // Overlay Contre-UNO : même mécanisme — handSize 1→3 (pénalité appliquée)
       // handSize est toujours dans le broadcast → visible sur TOUS les écrans simultanément
       for (const p of gameState.players ?? []) {
         const prevP = prev.players?.find(q => q.id === p.id);
-        const droppedToOne = prevP && prevP.handSize >= 2 && p.handSize === 1;
-        const unoCalled    = p.isUnoCalled && prevP && !prevP.isUnoCalled;
-        if (droppedToOne || unoCalled) {
+        if (prevP && prevP.handSize === 1 && p.handSize === 3) {
           clearTimeout(unoTimerRef.current);
-          setUnoOverlay({ name: p.name, isMe: p.id === playerId });
+          setUnoOverlay({ name: p.name, isMe: false, isCounter: true });
           unoTimerRef.current = setTimeout(() => setUnoOverlay(null), 2200);
           break;
         }
@@ -234,14 +303,6 @@ export default function GamePage() {
         isBot(newCurrentPlayer.id)
       ) {
         showNotification(`🤖 ${newCurrentPlayer.name} réfléchit…`, 2000);
-      }
-
-      // Notification Contre-UNO : un adversaire avec 1 carte vient de piocher 2
-      for (const p of gameState.players ?? []) {
-        const prevP = prev.players?.find(q => q.id === p.id);
-        if (p.id !== playerId && prevP && prevP.handSize === 1 && p.handSize === 3) {
-          showNotification(`💀 Contre-UNO ! ${p.name} pioche 2 cartes !`, 3000);
-        }
       }
     }
 
@@ -366,6 +427,7 @@ export default function GamePage() {
   // sinon → pénalité +2 sur les adversaires avec 1 carte non protégés.
   function handleUno() {
     if (myHand.length !== 1 || myPlayerData?.isUnoCalled) return;
+    // Trigger optimiste pour le cliqueur — le WebSocket confirmera pour les autres
     clearTimeout(unoTimerRef.current);
     setUnoOverlay({ name: myPlayerData?.name ?? "Moi", isMe: true });
     unoTimerRef.current = setTimeout(() => setUnoOverlay(null), 2200);
@@ -374,10 +436,7 @@ export default function GamePage() {
 
   function handleCounterUno() {
     if (counterUnoTargets.length === 0) return;
-    const target = counterUnoTargets[0];
-    clearTimeout(unoTimerRef.current);
-    setUnoOverlay({ name: target.name, isMe: false, isCounter: true });
-    unoTimerRef.current = setTimeout(() => setUnoOverlay(null), 2200);
+    // Pas de trigger local : l'overlay s'affiche pour tous via le broadcast handSize 1→3
     apiCallUno(gameId, playerId).catch(() => {});
   }
 
@@ -389,10 +448,21 @@ export default function GamePage() {
 
       {/* ── Fond animé d'ambiance ── */}
       <div className="game-bg" aria-hidden="true">
+        {/* Orbes colorés */}
         <div className="game-bg-orb orb-1" />
         <div className="game-bg-orb orb-2" />
         <div className="game-bg-orb orb-3" />
         <div className="game-bg-orb orb-4" />
+        <div className="game-bg-orb orb-5" />
+        <div className="game-bg-orb orb-6" />
+        {/* Mini-cartes flottantes */}
+        {[...Array(10)].map((_, i) => (
+          <div key={i} className={`game-bg-card bgcard-${i}`} />
+        ))}
+        {/* Grille de points */}
+        <div className="game-bg-grid" />
+        {/* Vignette */}
+        <div className="game-bg-vignette" />
       </div>
 
       {/* ── Top bar ── */}
@@ -446,6 +516,35 @@ export default function GamePage() {
          : isReconnecting         ? `↻ Reconnexion… (${reconnectAttempt}/${reconnectMax})`
          : "○ Connexion…"}
         </div>
+
+        {/* ── Barre de timer — positionnée en bas du topbar, ne perturbe pas le grid ── */}
+        {status === "IN_PROGRESS" && (
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            height: 4, background: "rgba(255,255,255,0.08)", overflow: "hidden",
+          }}>
+            <div style={{
+              position: "absolute", left: 0, top: 0, height: "100%",
+              width: `${(turnTimeLeft / TURN_DURATION) * 100}%`,
+              background: turnTimeLeft > 15
+                ? "linear-gradient(90deg, #43a047, #66bb6a)"
+                : turnTimeLeft > 7
+                ? "linear-gradient(90deg, #f9a825, #fdd835)"
+                : "linear-gradient(90deg, #e53935, #ef5350)",
+              transition: "width 1s linear, background 0.5s ease",
+              boxShadow: turnTimeLeft <= 7 ? "0 0 8px rgba(229,57,53,0.7)" : "none",
+            }} />
+            {isMyTurn && turnTimeLeft <= 10 && (
+              <div style={{
+                position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                fontSize: 9, fontWeight: 900, lineHeight: 1,
+                color: turnTimeLeft <= 7 ? "#ff8a80" : "#ffe082",
+              }}>
+                {turnTimeLeft}s
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       {/* ── Table ── */}
@@ -693,7 +792,7 @@ export default function GamePage() {
               Impossible de se reconnecter après {reconnectMax} tentatives.
             </div>
             <button
-              onClick={() => navigate("/")}
+              onClick={() => { clearSession(); navigate("/"); }}
               style={{
                 marginTop: 8, padding: "12px 36px", borderRadius: 14,
                 border: "none",

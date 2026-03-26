@@ -54,74 +54,140 @@ body {
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 30%, #1a1a2e 0%, #0d0d1a 55%, #060608 100%);
+  background: #07071a;
+  animation: bg-pulse 18s ease-in-out infinite;
 }
 
+@keyframes bg-pulse {
+  0%, 100% { background: #07071a; }
+  33%       { background: #0a061e; }
+  66%       { background: #060f1a; }
+}
+
+/* ── Orbes ── */
 .game-bg-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(90px);
-  will-change: transform;
+  filter: blur(80px);
+  will-change: transform, opacity;
 }
 
 .game-bg-orb.orb-1 {
-  width: 560px;
-  height: 560px;
-  background: radial-gradient(circle, rgba(30, 136, 229, 0.22) 0%, transparent 70%);
-  top: -220px;
-  left: -180px;
+  width: 650px; height: 650px;
+  background: radial-gradient(circle, rgba(30, 136, 229, 0.32) 0%, transparent 70%);
+  top: -260px; left: -200px;
   animation: bg-float-1 22s ease-in-out infinite;
 }
-
 .game-bg-orb.orb-2 {
-  width: 440px;
-  height: 440px;
-  background: radial-gradient(circle, rgba(229, 57, 53, 0.18) 0%, transparent 70%);
-  bottom: -180px;
-  right: -120px;
+  width: 520px; height: 520px;
+  background: radial-gradient(circle, rgba(229, 57, 53, 0.28) 0%, transparent 70%);
+  bottom: -200px; right: -140px;
   animation: bg-float-2 28s ease-in-out infinite;
 }
-
 .game-bg-orb.orb-3 {
-  width: 360px;
-  height: 360px;
-  background: radial-gradient(circle, rgba(67, 160, 71, 0.14) 0%, transparent 70%);
-  top: 35%;
-  right: 5%;
+  width: 420px; height: 420px;
+  background: radial-gradient(circle, rgba(67, 160, 71, 0.22) 0%, transparent 70%);
+  top: 30%; right: 2%;
   animation: bg-float-3 20s ease-in-out infinite;
 }
-
 .game-bg-orb.orb-4 {
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(253, 216, 53, 0.12) 0%, transparent 70%);
-  bottom: 15%;
-  left: 8%;
+  width: 380px; height: 380px;
+  background: radial-gradient(circle, rgba(253, 216, 53, 0.2) 0%, transparent 70%);
+  bottom: 10%; left: 4%;
   animation: bg-float-4 24s ease-in-out infinite;
+}
+.game-bg-orb.orb-5 {
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(156, 39, 176, 0.22) 0%, transparent 70%);
+  top: 10%; right: 30%;
+  animation: bg-float-3 32s ease-in-out infinite reverse;
+}
+.game-bg-orb.orb-6 {
+  width: 260px; height: 260px;
+  background: radial-gradient(circle, rgba(0, 188, 212, 0.18) 0%, transparent 70%);
+  bottom: 30%; left: 35%;
+  animation: bg-float-1 26s ease-in-out infinite reverse;
 }
 
 @keyframes bg-float-1 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  25%       { transform: translate(120px, 80px) scale(1.1); }
-  50%       { transform: translate(70px, 170px) scale(0.95); }
-  75%       { transform: translate(-40px, 100px) scale(1.05); }
+  25%       { transform: translate(130px, 90px) scale(1.12); }
+  50%       { transform: translate(80px, 190px) scale(0.94); }
+  75%       { transform: translate(-50px, 110px) scale(1.06); }
 }
-
 @keyframes bg-float-2 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  33%       { transform: translate(-140px, -80px) scale(1.15); }
-  66%       { transform: translate(-70px, -180px) scale(0.9); }
+  33%       { transform: translate(-160px, -90px) scale(1.18); }
+  66%       { transform: translate(-80px, -200px) scale(0.88); }
 }
-
 @keyframes bg-float-3 {
-  0%, 100% { transform: translate(0, 0); }
-  50%       { transform: translate(-110px, -70px) scale(1.2); }
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(-120px, -80px) scale(1.22); }
 }
-
 @keyframes bg-float-4 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  40%       { transform: translate(80px, -60px) scale(1.1); }
-  70%       { transform: translate(40px, -120px) scale(0.85); }
+  40%       { transform: translate(90px, -70px) scale(1.12); }
+  70%       { transform: translate(50px, -130px) scale(0.83); }
+}
+
+/* ── Mini-cartes flottantes ── */
+.game-bg-card {
+  position: absolute;
+  width: 36px; height: 52px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.game-bg-card.bgcard-0  { background: rgba(229,57,53,0.12);  top: 8%;  left: 7%;   animation: card-float 18s  3s  ease-in-out infinite; }
+.game-bg-card.bgcard-1  { background: rgba(30,136,229,0.12); top: 20%; right: 10%; animation: card-float 22s  0s  ease-in-out infinite; }
+.game-bg-card.bgcard-2  { background: rgba(67,160,71,0.12);  top: 60%; left: 12%;  animation: card-float 20s  7s  ease-in-out infinite; }
+.game-bg-card.bgcard-3  { background: rgba(253,216,53,0.1);  top: 75%; right: 18%; animation: card-float 24s  2s  ease-in-out infinite; }
+.game-bg-card.bgcard-4  { background: rgba(229,57,53,0.1);   top: 40%; left: 4%;   animation: card-float 19s  9s  ease-in-out infinite; }
+.game-bg-card.bgcard-5  { background: rgba(30,136,229,0.1);  top: 85%; left: 40%;  animation: card-float 21s  5s  ease-in-out infinite; }
+.game-bg-card.bgcard-6  { background: rgba(67,160,71,0.1);   top: 15%; left: 55%;  animation: card-float 25s  1s  ease-in-out infinite; }
+.game-bg-card.bgcard-7  { background: rgba(156,39,176,0.1);  top: 50%; right: 5%;  animation: card-float 17s  6s  ease-in-out infinite; }
+.game-bg-card.bgcard-8  { background: rgba(253,216,53,0.08); top: 30%; left: 28%;  animation: card-float 23s  4s  ease-in-out infinite; }
+.game-bg-card.bgcard-9  { background: rgba(0,188,212,0.1);   top: 70%; right: 35%; animation: card-float 20s  8s  ease-in-out infinite; }
+
+@keyframes card-float {
+  0%   { opacity: 0;    transform: translateY(40px)  rotate(var(--r, -15deg)) scale(0.8); }
+  15%  { opacity: 0.55; }
+  50%  { opacity: 0.3;  transform: translateY(-30px) rotate(calc(var(--r, -15deg) + 25deg)) scale(1.1); }
+  85%  { opacity: 0.55; }
+  100% { opacity: 0;    transform: translateY(40px)  rotate(var(--r, -15deg)) scale(0.8); }
+}
+.game-bg-card.bgcard-0  { --r: -18deg; }
+.game-bg-card.bgcard-1  { --r:  12deg; }
+.game-bg-card.bgcard-2  { --r: -8deg;  }
+.game-bg-card.bgcard-3  { --r:  22deg; }
+.game-bg-card.bgcard-4  { --r: -30deg; }
+.game-bg-card.bgcard-5  { --r:  6deg;  }
+.game-bg-card.bgcard-6  { --r: -14deg; }
+.game-bg-card.bgcard-7  { --r:  28deg; }
+.game-bg-card.bgcard-8  { --r: -5deg;  }
+.game-bg-card.bgcard-9  { --r:  18deg; }
+
+/* ── Grille de points ── */
+.game-bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: grid-drift 60s linear infinite;
+}
+@keyframes grid-drift {
+  from { background-position: 0 0; }
+  to   { background-position: 40px 40px; }
+}
+
+/* ── Vignette ── */
+.game-bg-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,0.65) 100%);
 }
 
 /* =========================

@@ -66,6 +66,10 @@ export function getGameState(gameId, playerId) {
   return request(`${BASE_URL}/${gameId}/state/${playerId}`);
 }
 
+export function reconnectPlayer(gameId, playerId) {
+  return request(`${BASE_URL}/${gameId}/reconnect/${playerId}`, { method: 'POST' });
+}
+
 // UNO et Contre-UNO utilisent le même endpoint.
 // Le backend décide : si l'appelant a 1 carte → UNO annoncé,
 // sinon → pénalité +2 sur les adversaires non protégés.
