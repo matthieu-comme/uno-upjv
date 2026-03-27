@@ -51,6 +51,11 @@ public class GameController {
     gameService.setBroadcastCallback(this::broadcastGameState);
   }
 
+  @GetMapping("/ping")
+  public ResponseEntity<Void> ping() {
+    return ResponseEntity.ok().build();
+  }
+
   /**
    * Crée une nouvelle partie avec les paramètres spécifiés.
    *
