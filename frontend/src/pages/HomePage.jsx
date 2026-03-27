@@ -243,7 +243,7 @@ export default function HomePage() {
               {/* Logo */}
               <div className="home-logo">
                 {!logoError
-                  ? <img src="/logo.png" alt="UNO" className="home-logo-img" onError={() => setLogoError(true)} />
+                  ? <img src="/logo/UNO_UPJV.png" alt="UNO UPJV Edition" className="home-logo-img" onError={() => setLogoError(true)} />
                   : <span className="home-logo-text">UNO</span>
                 }
               </div>

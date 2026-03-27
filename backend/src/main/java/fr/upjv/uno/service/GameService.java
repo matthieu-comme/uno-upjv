@@ -119,11 +119,22 @@ public class GameService {
     Game game = getGame(gameId);
     Player player = game.findPlayerById(playerId);
 
-    if (player != null)
-      game.removePlayer(player);
+    if (player == null) return;
 
-    if (game.getPlayers().isEmpty()) {
-      removeGame(gameId);
+    if (game.getStatus() == GameStatus.IN_PROGRESS) {
+      // Remplace le joueur par un bot qui hérite de sa main et de sa position
+      String botId = java.util.UUID.randomUUID().toString();
+      AIPlayer bot = new AIPlayer(botId, player.getName() + " (bot)", Difficulty.RANDOM);
+      game.replacePlayerWithBot(player, bot);
+      // Si c'était son tour, le bot joue immédiatement
+      if (game.getCurrentPlayer().getId().equals(botId)) {
+        playBotTurn(gameId);
+      }
+    } else {
+      game.removePlayer(player);
+      if (game.getPlayers().isEmpty()) {
+        removeGame(gameId);
+      }
     }
   }
 

@@ -189,6 +189,20 @@ public class Game {
   }
 
   /**
+   * Remplace un joueur humain par un bot pendant la partie (IN_PROGRESS).
+   * Le bot hérite de la main et de la position du joueur remplacé.
+   *
+   * @param player joueur à remplacer
+   * @param bot    bot qui prend sa place
+   */
+  public void replacePlayerWithBot(Player player, AIPlayer bot) {
+    int idx = players.indexOf(player);
+    if (idx < 0) return;
+    bot.setHand(player.getHand());
+    players.set(idx, bot);
+  }
+
+  /**
    * Réinitialise le jeu pour une nouvelle manche.
    *
    * @param newDeck Nouvelle pioche générée par la factory.

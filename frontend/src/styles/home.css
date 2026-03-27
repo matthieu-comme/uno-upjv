@@ -78,13 +78,23 @@
 
 .home-logo {
   text-align: center;
-  margin-bottom: 52px;
+  margin-bottom: 52px; /* ↕ espace entre le logo et le menu — augmenter pour descendre le menu */
+  margin-top: 0px;     /* ↕ espace au-dessus du logo — augmenter pour descendre le logo */
 }
 
 .home-logo-img {
-  max-height: 110px;
+  /* ── Taille ── */
+  max-height: 300px;   /* hauteur max du logo — augmenter pour agrandir */
+  width: auto;         /* largeur automatique (conserve les proportions) */
+  /* max-width: 340px; */ /* décommenter pour limiter la largeur max */
+
+  /* ── Centrage ── */
   display: block;
-  margin: 0 auto;
+  margin: 0 auto;      /* centré horizontalement */
+
+  /* ── Effets ── */
+  /* filter: drop-shadow(0 8px 24px rgba(229,57,53,0.4)); */ /* décommenter pour ajouter une ombre colorée */
+  /* opacity: 0.95; */  /* décommenter pour légèrement transparenter */
 }
 
 .home-logo-text {

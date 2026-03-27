@@ -57,9 +57,9 @@ export default function Card({ card, faceDown = false, tintColor = null }) {
           alt={faceDown ? "Carte" : `${card?.color} ${card?.value}`}
           style={{
             width: "100%",
-            height: faceDown ? "110%" : "100%",
+            height: faceDown ? "110%" : "100%", // "face cachée" : "face avant"
             objectFit: "cover",
-            transform: faceDown ? "scale(1.65) translateY(0%)" : "scale(1.15)", // changer la taille de l'image pour les cartes "face cachée" : "face avant"
+            transform: faceDown ? "scale(1.10) translateY(0%)" : "scale(1)", // changer la taille de l'image pour les cartes "face cachée" : "face avant"
             borderRadius: 12,
             display: "block",
           }}

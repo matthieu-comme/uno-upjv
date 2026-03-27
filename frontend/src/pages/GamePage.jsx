@@ -10,6 +10,7 @@ import {
   callUno as apiCallUno,
   getGameState as apiGetGameState,
   reconnectPlayer as apiReconnectPlayer,
+  leaveGame as apiLeaveGame,
 } from "../services/api";
 import { connectWebSocket, disconnectWebSocket } from "../services/websocket";
 import { play, isSoundEnabled, toggleSound } from "../services/sounds";
@@ -102,6 +103,9 @@ export default function GamePage() {
   const [retryKey, setRetryKey] = useState(0);
   const [hoveredPickerColor, setHoveredPickerColor] = useState(null);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+  // Verrou local : désactive immédiatement le bouton UNO après un clic, avant la réponse backend
+  const [unoLocalLock, setUnoLocalLock] = useState(false);
   // L'état UNO est entièrement géré par le backend via isUnoCalled dans PlayerDTO
 
   const deckRef        = useRef(null);
@@ -470,10 +474,11 @@ export default function GamePage() {
   // Le backend décide : appelant avec 1 carte → UNO annoncé,
   // sinon → pénalité +2 sur les adversaires avec 1 carte non protégés.
   function handleUno() {
-    if (myHand.length !== 1 || myPlayerData?.isUnoCalled) return;
+    if (myHand.length !== 1 || myPlayerData?.isUnoCalled || unoLocalLock) return;
     const now = Date.now();
     if (now - unoLastCallRef.current < UNO_COOLDOWN) return;
     unoLastCallRef.current = now;
+    setUnoLocalLock(true); // verrou immédiat côté client
     play('uno');
     clearTimeout(unoTimerRef.current);
     setUnoOverlay({ name: myPlayerData?.name ?? "Moi", isMe: true });
@@ -482,12 +487,43 @@ export default function GamePage() {
   }
 
   function handleCounterUno() {
-    if (counterUnoTargets.length === 0) return;
+    if (counterUnoTargets.length === 0 || unoLocalLock) return;
     const now = Date.now();
     if (now - unoLastCallRef.current < UNO_COOLDOWN) return;
     unoLastCallRef.current = now;
+    setUnoLocalLock(true); // verrou immédiat côté client
     apiCallUno(gameId, playerId).catch(() => {});
   }
+
+  // ─── Raccourci clavier sélecteur couleur (1-4) ───────────────────────────────
+  useEffect(() => {
+    if (!colorPicker) return;
+    const options = [
+      { key: "RED",    hex: "#e53935" },
+      { key: "BLUE",   hex: "#1e88e5" },
+      { key: "GREEN",  hex: "#43a047" },
+      { key: "YELLOW", hex: "#fdd835" },
+    ];
+    function onKey(e) {
+      const idx = parseInt(e.key) - 1;
+      if (idx >= 0 && idx < options.length) {
+        play('colorChosen');
+        const { card, sourceEl } = colorPicker;
+        setColorPicker(null);
+        setHoveredPickerColor(null);
+        executePlayCard(card, sourceEl, options[idx].key);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colorPicker]);
+
+  // ─── Reset verrou UNO quand le tour change (action traitée par le backend) ────
+  useEffect(() => {
+    setUnoLocalLock(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState?.currentPlayerIndex]);
 
   // ─── Raccourci clavier UNO / Contre-UNO ──────────────────────────────────────
   useEffect(() => {
@@ -519,20 +555,37 @@ export default function GamePage() {
         style={{
           position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
           background: activeColorHex ?? "transparent",
-          opacity: activeColorHex ? 0.07 : 0,
+          opacity: activeColorHex ? 0.13 : 0,
           transition: "background 0.6s ease, opacity 0.6s ease",
         }}
       />
 
       {/* ── Fond animé d'ambiance ── */}
       <div className="game-bg" aria-hidden="true">
-        {/* Orbes colorés */}
+        {/* Orbes colorés fixes */}
         <div className="game-bg-orb orb-1" />
         <div className="game-bg-orb orb-2" />
         <div className="game-bg-orb orb-3" />
         <div className="game-bg-orb orb-4" />
         <div className="game-bg-orb orb-5" />
         <div className="game-bg-orb orb-6" />
+        {/* Orbes dynamiques — couleur active (même effet que le color picker) */}
+        {[
+          { top: '-25%', left: '-18%', width: '800px', height: '800px', o: 0.38 },
+          { bottom: '-22%', right: '-18%', width: '700px', height: '700px', o: 0.32 },
+          { top: '15%', right: '-8%', width: '500px', height: '500px', o: 0.26 },
+          { bottom: '12%', left: '6%', width: '450px', height: '450px', o: 0.22 },
+        ].map(({ o, ...pos }, i) => (
+          <div key={`dyn-${i}`} style={{
+            position: 'absolute', borderRadius: '50%',
+            filter: 'blur(100px)',
+            background: activeColorHex ?? '#07071a',
+            opacity: activeColorHex ? o : 0,
+            transition: 'background 0.8s ease, opacity 0.8s ease',
+            pointerEvents: 'none', willChange: 'opacity',
+            ...pos,
+          }} />
+        ))}
         {/* Mini-cartes flottantes */}
         {[...Array(10)].map((_, i) => (
           <div key={i} className={`game-bg-card bgcard-${i}`} />
@@ -591,6 +644,21 @@ export default function GamePage() {
           >
             {soundOn ? "🔊" : "🔇"}
           </button>
+
+          {status === "IN_PROGRESS" && (
+            <button
+              onClick={() => setShowQuitConfirm(true)}
+              title="Quitter la partie"
+              style={{
+                background: "rgba(229,57,53,0.15)", border: "1px solid rgba(229,57,53,0.35)",
+                borderRadius: 999, padding: "4px 12px", cursor: "pointer",
+                fontSize: 12, fontWeight: 700, color: "rgba(255,120,120,0.9)",
+                letterSpacing: 0.5,
+              }}
+            >
+              Quitter
+            </button>
+          )}
 
           <div style={{
             fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
@@ -675,6 +743,44 @@ export default function GamePage() {
           {/* Table verte */}
           <section className="table">
 
+            {/* Flèches de direction orbitant autour du centre */}
+            {status === "IN_PROGRESS" && (
+              <svg
+                className={`direction-orbit direction-orbit--${direction === 1 ? 'cw' : 'ccw'}`}
+                viewBox="0 0 340 340" /* ← taille totale du SVG : centre = moitié = 170 */
+                width="340" height="340" /* ← même valeur que viewBox */
+                aria-hidden="true"
+              >
+                {/* Anneau guide très subtil */}
+                <circle cx="170" cy="170" r="148" /* ← cx/cy = moitié de viewBox | r = rayon de l'orbite */
+                  fill="none"
+                  stroke={activeColorHex ?? "rgba(255,255,255,1)"}
+                  strokeOpacity="0.07"
+                  strokeWidth="1.5"
+                  strokeDasharray="6 10"
+                  style={{ transition: "stroke 0.8s ease" }}
+                />
+                {/* 3 flèches chevron espacées de 120° */}
+                {[0, 120, 240].map(deg => {
+                  const rad = (deg - 90) * Math.PI / 180;
+                  const x = 170 + 148 * Math.cos(rad); /* ← 170 = cx/cy | 148 = même r que le cercle */
+                  const y = 170 + 148 * Math.sin(rad);
+                  const arrowRot = direction === 1 ? deg : deg + 180;
+                  return (
+                    <text key={deg}
+                      x={x} y={y}
+                      textAnchor="middle" dominantBaseline="central"
+                      fontSize="50" fontWeight="1000" /* ← taille des flèches — modifie cette valeur */
+                      fill={activeColorHex ?? "white"}
+                      fillOpacity="0.5"
+                      transform={`rotate(${arrowRot}, ${x}, ${y})`}
+                      style={{ transition: "fill 0.8s ease" }}
+                    >›</text>
+                  );
+                })}
+              </svg>
+            )}
+
             {/* Centre : pioche + défausse */}
             <div className="table-center-zone">
 
@@ -718,7 +824,7 @@ export default function GamePage() {
               const canUno         = myHand.length === 1 && !myPlayerData?.isUnoCalled;
               // Bloqué si quelqu'un a déjà appelé UNO (source de vérité : backend)
               const someoneCalledUno = players.some(p => p.isUnoCalled);
-              const isActive       = (counterTarget != null || canUno) && !someoneCalledUno;
+              const isActive       = (counterTarget != null || canUno) && !someoneCalledUno && !unoLocalLock;
               return (
                 <button
                   className={`table-uno-btn${isActive ? " active" : ""}`}
@@ -737,7 +843,11 @@ export default function GamePage() {
       </main>
 
       {/* ── Main du joueur ── */}
-      <section className={`player-hand-zone${isMyTurn ? " my-turn" : ""}`} ref={handZoneRef}>
+      <section
+        className={`player-hand-zone${isMyTurn ? " my-turn" : ""}`}
+        ref={handZoneRef}
+        style={isMyTurn && activeColorHex ? { '--turn-color': activeColorHex } : undefined}
+      >
         <AnimatePresence>
           {myTurnFlash && (
             <motion.div
@@ -758,25 +868,29 @@ export default function GamePage() {
               {status === "WAITING_FOR_PLAYERS" ? "En attente du début de la partie..." : "Aucune carte"}
             </div>
         }
+
+        {/* Badge compteur de cartes */}
+        {status === "IN_PROGRESS" && myHand.length > 0 && (
+          <div style={{
+            position: "absolute", bottom: 14, left: 18,
+            display: "flex", alignItems: "center", gap: 6,
+            background: "rgba(0,0,0,0.5)",
+            border: `1px solid ${activeColorHex ? activeColorHex + "44" : "rgba(255,255,255,0.1)"}`,
+            borderRadius: 999, padding: "4px 12px",
+            backdropFilter: "blur(6px)", pointerEvents: "none",
+            transition: "border-color 0.6s ease",
+          }}>
+            <span style={{ fontSize: 16, lineHeight: 1 }}>🃏</span>
+            <span style={{ fontSize: 13, fontWeight: 900, color: "white", lineHeight: 1 }}>
+              {myHand.length}
+            </span>
+            <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 0.5 }}>
+              carte{myHand.length > 1 ? "s" : ""}
+            </span>
+          </div>
+        )}
       </section>
 
-      {/* ── Panneau d'infos ── */}
-      {status === "IN_PROGRESS" && (
-        <div className="game-info-panel">
-          <div className="game-info-row">
-            <span className="game-info-label">Joueurs</span>
-            <span className="game-info-value">{players.length}</span>
-          </div>
-          <div className="game-info-row">
-            <span className="game-info-label">Ma main</span>
-            <span className="game-info-value">{myHand.length} carte{myHand.length > 1 ? "s" : ""}</span>
-          </div>
-          <div className="game-info-row">
-            <span className="game-info-label">Sens</span>
-            <span className="game-info-value">{direction === 1 ? "↻ Horaire" : "↺ Anti-H."}</span>
-          </div>
-        </div>
-      )}
 
       {/* ── Toast erreur règles ── */}
       <AnimatePresence>
@@ -1041,36 +1155,114 @@ export default function GamePage() {
                 Choisir une couleur
               </div>
               <div style={{ display: "flex", gap: 14 }}>
-                {pickerColors.map(({ key, hex, label }) => (
-                  <button
-                    key={key}
-                    title={label}
-                    onClick={() => {
-                      play('colorChosen');
-                      const { card, sourceEl } = colorPicker;
-                      setColorPicker(null);
-                      setHoveredPickerColor(null);
-                      executePlayCard(card, sourceEl, key);
-                    }}
-                    style={{
-                      width: 64, height: 64, borderRadius: 14,
-                      border: hoveredPickerColor === hex ? `3px solid white` : "3px solid rgba(255,255,255,0.2)",
-                      background: hex, cursor: "pointer",
-                      transition: "transform 0.15s, border-color 0.15s, box-shadow 0.15s",
-                      transform: hoveredPickerColor === hex ? "scale(1.22)" : "scale(1)",
-                      boxShadow: hoveredPickerColor === hex
-                        ? `0 6px 28px ${hex}cc, 0 0 0 4px ${hex}44`
-                        : `0 4px 16px ${hex}88`,
-                    }}
-                    onMouseEnter={() => setHoveredPickerColor(hex)}
-                    onMouseLeave={() => setHoveredPickerColor(null)}
-                  />
+                {pickerColors.map(({ key, hex, label }, idx) => (
+                  <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                    <button
+                      title={label}
+                      onClick={() => {
+                        play('colorChosen');
+                        const { card, sourceEl } = colorPicker;
+                        setColorPicker(null);
+                        setHoveredPickerColor(null);
+                        executePlayCard(card, sourceEl, key);
+                      }}
+                      style={{
+                        width: 64, height: 64, borderRadius: 14,
+                        border: hoveredPickerColor === hex ? `3px solid white` : "3px solid rgba(255,255,255,0.2)",
+                        background: hex, cursor: "pointer",
+                        transition: "transform 0.15s, border-color 0.15s, box-shadow 0.15s",
+                        transform: hoveredPickerColor === hex ? "scale(1.22)" : "scale(1)",
+                        boxShadow: hoveredPickerColor === hex
+                          ? `0 6px 28px ${hex}cc, 0 0 0 4px ${hex}44`
+                          : `0 4px 16px ${hex}88`,
+                      }}
+                      onMouseEnter={() => setHoveredPickerColor(hex)}
+                      onMouseLeave={() => setHoveredPickerColor(null)}
+                    />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: 0.5, textAlign: "center" }}>
+                      {label}<span style={{ marginLeft: 4, opacity: 0.55 }}>[{idx + 1}]</span>
+                    </span>
+                  </div>
                 ))}
               </div>
             </div>
           </div>
         );
       })()}
+
+      {/* ── Modal confirmation quitter ── */}
+      <AnimatePresence>
+        {showQuitConfirm && (
+          <motion.div
+            key="quit-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "fixed", inset: 0,
+              background: "rgba(0,0,0,0.82)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              zIndex: 9800,
+            }}
+            onClick={() => setShowQuitConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.88, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.88, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 380, damping: 26 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: "#1a1a2e",
+                border: "1px solid rgba(229,57,53,0.4)",
+                borderRadius: 20, padding: "32px 36px",
+                textAlign: "center", maxWidth: 360,
+                boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(229,57,53,0.15)",
+                display: "flex", flexDirection: "column", gap: 16,
+              }}
+            >
+              <div style={{ fontSize: 48, lineHeight: 1 }}>⚠️</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: "white" }}>
+                Quitter la partie ?
+              </div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>
+                Un bot prendra ta place et jouera à ta place.<br />
+                Tu ne pourras <strong style={{ color: "rgba(255,120,120,0.9)" }}>pas revenir</strong> dans cette partie.
+              </div>
+              <div style={{ display: "flex", gap: 12, marginTop: 8, justifyContent: "center" }}>
+                <button
+                  onClick={() => setShowQuitConfirm(false)}
+                  style={{
+                    padding: "10px 24px", borderRadius: 12,
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "rgba(255,255,255,0.08)",
+                    color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer",
+                  }}
+                >
+                  Rester
+                </button>
+                <button
+                  onClick={() => {
+                    setShowQuitConfirm(false);
+                    disconnectWebSocket();
+                    apiLeaveGame(gameId, playerId).catch(() => {});
+                    clearSession();
+                    navigate("/");
+                  }}
+                  style={{
+                    padding: "10px 24px", borderRadius: 12, border: "none",
+                    background: "linear-gradient(135deg, #e53935, #b71c1c)",
+                    color: "white", fontWeight: 900, fontSize: 14, cursor: "pointer",
+                    boxShadow: "0 4px 16px rgba(229,57,53,0.4)",
+                  }}
+                >
+                  Quitter
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Carte volante ── */}
       <AnimatePresence>
