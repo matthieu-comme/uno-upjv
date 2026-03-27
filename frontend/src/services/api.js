@@ -1,5 +1,5 @@
 const BASE_URL = `${import.meta.env.VITE_API_URL ?? ''}/api/games`;
-const PING_URL  = `${import.meta.env.VITE_API_URL ?? ''}/api/ping`;
+const PING_URL  = `${BASE_URL}/ping`;
 const TIMEOUT_MS = 120_000;
 
 async function request(url, options = {}) {
