@@ -319,7 +319,7 @@ body {
 .stack-card-bg {
   position: absolute;
   inset: 0;
-  border-radius: 14px;
+  border-radius: 16px;
   background: #111;
   border: 2px solid rgba(255, 255, 255, 0.22);
 }
@@ -508,11 +508,11 @@ body {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 48px;
-  height: 68px;
+  width: 52px;
+  height: 74px;
   border-radius: 10px;
   border: 2px solid rgba(255, 255, 255, 0.22);
-  background: #111;
+  background: #111 url('/cards/back.png') center / 150% 150% no-repeat;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
   transform-origin: center center;
 }

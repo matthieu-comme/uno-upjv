@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { createGame, joinGame } from '../services/api';
+import { createGame, joinGame, ping } from '../services/api';
 import { isSoundEnabled, toggleSound } from '../services/sounds';
 import '../styles/home.css';
 
@@ -55,7 +55,11 @@ export default function HomePage() {
   const [activeIdx, setActiveIdx] = useState(0);
   const [logoError, setLogoError] = useState(false);
   const [resumeSession, setResumeSession] = useState(null);
-  const [soundOn, setSoundOn] = useState(isSoundEnabled);
+  const [soundOn,       setSoundOn]       = useState(isSoundEnabled);
+  const [slowLoad,      setSlowLoad]      = useState(false);
+
+  // Ping préventif : réveille le serveur dès l'ouverture de la page
+  useEffect(() => { ping(); }, []);
 
   useEffect(() => {
     try {
@@ -132,7 +136,9 @@ export default function HomePage() {
   async function handleCreate() {
     if (!playerName.trim()) return setError('Entre ton pseudo');
     setLoading(true);
+    setSlowLoad(false);
     setError('');
+    const slowTimer = setTimeout(() => setSlowLoad(true), 3000);
     try {
       const game  = await createGame(maxPlayers, 'STANDARD');
       const state = await joinGame(game.gameId, playerName.trim());
@@ -143,6 +149,8 @@ export default function HomePage() {
     } catch (e) {
       setError(e.message);
     } finally {
+      clearTimeout(slowTimer);
+      setSlowLoad(false);
       setLoading(false);
     }
   }
@@ -154,7 +162,9 @@ export default function HomePage() {
     if (!playerName.trim())  return setError('Entre ton pseudo');
     if (joinCode.length < 8) return setError('Entre le code complet (8 caractères)');
     setLoading(true);
+    setSlowLoad(false);
     setError('');
+    const slowTimer = setTimeout(() => setSlowLoad(true), 3000);
     try {
       const state = await joinGame(joinCode, playerName.trim());
       const me    = state.players.find(p => p.name === playerName.trim());
@@ -164,6 +174,8 @@ export default function HomePage() {
     } catch (e) {
       setError(e.message);
     } finally {
+      clearTimeout(slowTimer);
+      setSlowLoad(false);
       setLoading(false);
     }
   }
@@ -323,8 +335,11 @@ export default function HomePage() {
                 {error && <div className="home-error">{error}</div>}
 
                 <button className="home-action-btn" onClick={handleCreate} disabled={loading}>
-                  {loading ? 'Création…' : 'Créer la partie'}
+                  {loading ? (slowLoad ? '⏳ Réveil du serveur…' : 'Création…') : 'Créer la partie'}
                 </button>
+                {slowLoad && (
+                  <p className="slow-load-hint">Cela peut prendre jusqu'à une minute.</p>
+                )}
               </div>
             </motion.div>
           )}
@@ -379,8 +394,11 @@ export default function HomePage() {
                   onClick={handleJoin}
                   disabled={loading}
                 >
-                  {loading ? 'Connexion…' : 'Rejoindre la partie'}
+                  {loading ? (slowLoad ? '⏳ Réveil du serveur…' : 'Connexion…') : 'Rejoindre la partie'}
                 </button>
+                {slowLoad && (
+                  <p className="slow-load-hint">Cela peut prendre jusqu'à une minute.</p>
+                )}
               </div>
             </motion.div>
           )}
