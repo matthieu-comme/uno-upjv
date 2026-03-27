@@ -12,6 +12,7 @@ import {
   reconnectPlayer as apiReconnectPlayer,
 } from "../services/api";
 import { connectWebSocket, disconnectWebSocket } from "../services/websocket";
+import { play, isSoundEnabled, toggleSound } from "../services/sounds";
 import "../styles/game.css";
 
 
@@ -98,6 +99,9 @@ export default function GamePage() {
   const [colorPicker, setColorPicker] = useState(null);
   const [winnerOverlay, setWinnerOverlay] = useState(null);
   const [turnTimeLeft, setTurnTimeLeft] = useState(30);
+  const [retryKey, setRetryKey] = useState(0);
+  const [hoveredPickerColor, setHoveredPickerColor] = useState(null);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled);
   // L'état UNO est entièrement géré par le backend via isUnoCalled dans PlayerDTO
 
   const deckRef        = useRef(null);
@@ -107,6 +111,25 @@ export default function GamePage() {
   const [flyingCard, setFlyingCard] = useState(null);
   const flyingDoneRef  = useRef(null);
   const unoTimerRef    = useRef(null);
+  const unoLastCallRef = useRef(0);
+  const UNO_COOLDOWN   = 1500; // ms
+  const prevIsMyTurnRef = useRef(false);
+  const [myTurnFlash, setMyTurnFlash] = useState(false);
+
+  // ─── Flash "C'est ton tour !" au changement de tour ─────────────────────────
+  useEffect(() => {
+    const curId     = gameState?.players?.[gameState?.currentPlayerIndex]?.id;
+    const nowMyTurn = curId === playerId && gameState?.status === "IN_PROGRESS";
+    const wasMyTurn = prevIsMyTurnRef.current;
+    prevIsMyTurnRef.current = nowMyTurn;
+    if (nowMyTurn && !wasMyTurn) {
+      play('myTurn');
+      setMyTurnFlash(true);
+      const t = setTimeout(() => setMyTurnFlash(false), 2000);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState?.currentPlayerIndex, gameState?.status]);
 
   // ─── Countdown overlay gagnant ───────────────────────────────────────────────
   useEffect(() => {
@@ -168,12 +191,19 @@ export default function GamePage() {
             playerName: navState?.playerName ?? savedSession?.playerName,
             gameId,
           };
+          play('win');
           setWinnerOverlay({ name: w?.name ?? "Inconnu", countdown: 10, navState: endNavState });
         }
       },
       (status, attempt, max) => {
         if (status === 'connected' || status === 'reconnected') {
           setWsStatus("connected");
+          if (status === 'reconnected') {
+            apiReconnectPlayer(gameId, playerId).catch(() => {});
+            apiGetGameState(gameId, playerId)
+              .then(s => { if (s) setGameState(normalizeState(s)); })
+              .catch(() => {});
+          }
         } else if (status === 'reconnecting') {
           setWsStatus(`reconnecting:${attempt}:${max}`);
         } else if (status === 'failed' || status === 'error') {
@@ -182,7 +212,7 @@ export default function GamePage() {
       }
     );
     return () => disconnectWebSocket();
-  }, [gameId, playerId, navigate]);
+  }, [gameId, playerId, navigate, retryKey]);
 
   // ─── Polling fallback quand c'est le tour d'un bot ───────────────────────────
   useEffect(() => {
@@ -243,8 +273,10 @@ export default function GamePage() {
         const cardCountDiff = (gameState.myHand?.length ?? 0) - (prev.myHand?.length ?? 0);
 
         if (newTopCard?.value === "+2" && cardCountDiff >= 2) {
+          play('penalty');
           showNotification("💀 Tu dois piocher 2 cartes !", 3000);
         } else if (newTopCard?.value === "+4" && cardCountDiff >= 4) {
+          play('penalty');
           showNotification("💀 Tu dois piocher 4 cartes !", 3000);
         } else if (newTopCard?.value === "Skip") {
           const n       = prev.players.length;
@@ -275,6 +307,7 @@ export default function GamePage() {
       for (const p of gameState.players ?? []) {
         const prevP = prev.players?.find(q => q.id === p.id);
         if (p.isUnoCalled && prevP && !prevP.isUnoCalled) {
+          play('uno');
           clearTimeout(unoTimerRef.current);
           setUnoOverlay({ name: p.name, isMe: p.id === playerId });
           unoTimerRef.current = setTimeout(() => setUnoOverlay(null), 2200);
@@ -283,10 +316,10 @@ export default function GamePage() {
       }
 
       // Overlay Contre-UNO : même mécanisme — handSize 1→3 (pénalité appliquée)
-      // handSize est toujours dans le broadcast → visible sur TOUS les écrans simultanément
       for (const p of gameState.players ?? []) {
         const prevP = prev.players?.find(q => q.id === p.id);
         if (prevP && prevP.handSize === 1 && p.handSize === 3) {
+          play('counterUno');
           clearTimeout(unoTimerRef.current);
           setUnoOverlay({ name: p.name, isMe: false, isCounter: true });
           unoTimerRef.current = setTimeout(() => setUnoOverlay(null), 2200);
@@ -353,6 +386,7 @@ export default function GamePage() {
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
   function showError(msg) {
+    play('error');
     setRuleError(msg);
     setTimeout(() => setRuleError(""), 2500);
   }
@@ -360,6 +394,15 @@ export default function GamePage() {
   function showNotification(text, duration = 2500) {
     setNotification(text);
     setTimeout(() => setNotification(null), duration);
+  }
+
+  function handleRetry() {
+    setWsStatus("connecting");
+    setRetryKey(k => k + 1);
+    apiReconnectPlayer(gameId, playerId).catch(() => {});
+    apiGetGameState(gameId, playerId)
+      .then(s => { if (s) setGameState(normalizeState(s)); })
+      .catch(() => {});
   }
 
   function rectOf(el) {
@@ -395,7 +438,7 @@ export default function GamePage() {
 
   async function executePlayCard(card, sourceEl, chosenColor) {
     try {
-      // Animation départ immédiate, même avant la réponse du serveur
+      play('playCard');
       animateCard(card, sourceEl, discardRef.current, () => {});
       await apiPlayCard(gameId, playerId, card.id, chosenColor);
     } catch (e) {
@@ -418,6 +461,7 @@ export default function GamePage() {
       flyingDoneRef.current = null;
     }
 
+    play('drawCard');
     apiDrawCard(gameId, playerId).catch(e => showError(e.message));
   }
 
@@ -427,7 +471,10 @@ export default function GamePage() {
   // sinon → pénalité +2 sur les adversaires avec 1 carte non protégés.
   function handleUno() {
     if (myHand.length !== 1 || myPlayerData?.isUnoCalled) return;
-    // Trigger optimiste pour le cliqueur — le WebSocket confirmera pour les autres
+    const now = Date.now();
+    if (now - unoLastCallRef.current < UNO_COOLDOWN) return;
+    unoLastCallRef.current = now;
+    play('uno');
     clearTimeout(unoTimerRef.current);
     setUnoOverlay({ name: myPlayerData?.name ?? "Moi", isMe: true });
     unoTimerRef.current = setTimeout(() => setUnoOverlay(null), 2200);
@@ -436,15 +483,46 @@ export default function GamePage() {
 
   function handleCounterUno() {
     if (counterUnoTargets.length === 0) return;
-    // Pas de trigger local : l'overlay s'affiche pour tous via le broadcast handSize 1→3
+    const now = Date.now();
+    if (now - unoLastCallRef.current < UNO_COOLDOWN) return;
+    unoLastCallRef.current = now;
     apiCallUno(gameId, playerId).catch(() => {});
   }
 
+  // ─── Raccourci clavier UNO / Contre-UNO ──────────────────────────────────────
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key !== 'u' && e.key !== 'U') return;
+      if (document.activeElement?.tagName === 'INPUT') return;
+      e.preventDefault();
+      if (counterUnoTargets.length > 0) handleCounterUno();
+      else handleUno();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counterUnoTargets, myHand, myPlayerData, players]);
+
   // ─── Render ──────────────────────────────────────────────────────────────────
-  const activeColorHex = COLOR_MAP[activeColor] ?? "#555";
+  // Couleur effective : activeColor (joker) ou couleur de la topCard (carte normale)
+  const _normToKey = { red: "RED", blue: "BLUE", green: "GREEN", yellow: "YELLOW" };
+  const effectiveColorKey = activeColor ?? (topCard?.color ? _normToKey[topCard.color] : null);
+  const activeColorHex    = COLOR_MAP[effectiveColorKey] ?? null;
+  const discardTint       = (topCard?.color === "wild" && activeColorHex) ? activeColorHex : null;
 
   return (
     <div className="game-root">
+
+      {/* ── Overlay couleur active (ambiance) ── */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
+          background: activeColorHex ?? "transparent",
+          opacity: activeColorHex ? 0.07 : 0,
+          transition: "background 0.6s ease, opacity 0.6s ease",
+        }}
+      />
 
       {/* ── Fond animé d'ambiance ── */}
       <div className="game-bg" aria-hidden="true">
@@ -500,21 +578,36 @@ export default function GamePage() {
           </AnimatePresence>
         </div>
 
-        <div style={{
-          fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
-          background: wsStatus === "connected" ? "rgba(67,160,71,0.3)"
-                    : isFailed               ? "rgba(229,57,53,0.3)"
-                    : isReconnecting         ? "rgba(255,152,0,0.3)"
-                    : "rgba(255,255,255,0.1)",
-          color: wsStatus === "connected" ? "#a5d6a7"
-               : isFailed               ? "#ff8a80"
-               : isReconnecting         ? "#ffcc80"
-               : "#ccc",
-        }}>
-          {wsStatus === "connected" ? "● Connecté"
-         : isFailed               ? "● Hors ligne"
-         : isReconnecting         ? `↻ Reconnexion… (${reconnectAttempt}/${reconnectMax})`
-         : "○ Connexion…"}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={() => setSoundOn(toggleSound())}
+            title={soundOn ? "Couper le son" : "Activer le son"}
+            style={{
+              background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)",
+              borderRadius: 999, padding: "4px 10px", cursor: "pointer",
+              fontSize: 14, lineHeight: 1, color: "white",
+              opacity: soundOn ? 1 : 0.45,
+            }}
+          >
+            {soundOn ? "🔊" : "🔇"}
+          </button>
+
+          <div style={{
+            fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
+            background: wsStatus === "connected" ? "rgba(67,160,71,0.3)"
+                      : isFailed               ? "rgba(229,57,53,0.3)"
+                      : isReconnecting         ? "rgba(255,152,0,0.3)"
+                      : "rgba(255,255,255,0.1)",
+            color: wsStatus === "connected" ? "#a5d6a7"
+                 : isFailed               ? "#ff8a80"
+                 : isReconnecting         ? "#ffcc80"
+                 : "#ccc",
+          }}>
+            {wsStatus === "connected" ? "● Connecté"
+           : isFailed               ? "● Hors ligne"
+           : isReconnecting         ? `↻ Reconnexion… (${reconnectAttempt}/${reconnectMax})`
+           : "○ Connexion…"}
+          </div>
         </div>
 
         {/* ── Barre de timer — positionnée en bas du topbar, ne perturbe pas le grid ── */}
@@ -603,9 +696,16 @@ export default function GamePage() {
               </div>
 
               {/* Défausse */}
-              <div className="discard-pile" ref={discardRef}>
+              <div
+                className="discard-pile"
+                ref={discardRef}
+                style={activeColorHex ? {
+                  filter: `drop-shadow(0 0 18px ${activeColorHex}99)`,
+                  transition: "filter 0.5s ease",
+                } : undefined}
+              >
                 {topCard
-                  ? <Card card={topCard} />
+                  ? <Card card={topCard} tintColor={discardTint} />
                   : <div style={{ width: 78, height: 112, borderRadius: 14, border: "2px dashed rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 12 }}>vide</div>
                 }
               </div>
@@ -623,10 +723,11 @@ export default function GamePage() {
                 <button
                   className={`table-uno-btn${isActive ? " active" : ""}`}
                   disabled={!isActive}
-                  title={counterTarget ? `Contre-UNO sur ${counterTarget.name}` : "Annoncer UNO"}
+                  title={counterTarget ? `Contre-UNO sur ${counterTarget.name} [U]` : "Annoncer UNO [U]"}
                   onClick={() => counterTarget ? handleCounterUno() : handleUno()}
                 >
                   {counterTarget ? `Contre ! ${counterTarget.name}` : "UNO !"}
+                  {isActive && <span style={{ fontSize: 10, opacity: 0.7, marginLeft: 6, fontWeight: 700 }}>[U]</span>}
                 </button>
               );
             })()}
@@ -636,7 +737,21 @@ export default function GamePage() {
       </main>
 
       {/* ── Main du joueur ── */}
-      <section className="player-hand-zone" ref={handZoneRef}>
+      <section className={`player-hand-zone${isMyTurn ? " my-turn" : ""}`} ref={handZoneRef}>
+        <AnimatePresence>
+          {myTurnFlash && (
+            <motion.div
+              key="my-turn-flash"
+              className="hand-turn-flash"
+              initial={{ opacity: 0, y: 14, scale: 0.88 }}
+              animate={{ opacity: 1, y: 0,  scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.92 }}
+              transition={{ type: "spring", stiffness: 380, damping: 24 }}
+            >
+              ▶ C'est ton tour !
+            </motion.div>
+          )}
+        </AnimatePresence>
         {myHand.length > 0
           ? <Hand cards={myHand} onPlayCard={isMyTurn ? handlePlayCard : undefined} />
           : <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, textAlign: "center", padding: "20px" }}>
@@ -791,19 +906,32 @@ export default function GamePage() {
             <div style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", textAlign: "center", maxWidth: 320 }}>
               Impossible de se reconnecter après {reconnectMax} tentatives.
             </div>
-            <button
-              onClick={() => { clearSession(); navigate("/"); }}
-              style={{
-                marginTop: 8, padding: "12px 36px", borderRadius: 14,
-                border: "none",
-                background: "linear-gradient(135deg, #e53935, #b71c1c)",
-                color: "white", fontWeight: 900, fontSize: 16,
-                cursor: "pointer",
-                boxShadow: "0 6px 20px rgba(229,57,53,0.4)",
-              }}
-            >
-              Retour à l'accueil
-            </button>
+            <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+              <button
+                onClick={handleRetry}
+                style={{
+                  padding: "12px 32px", borderRadius: 14, border: "none",
+                  background: "linear-gradient(135deg, #1e88e5, #1565c0)",
+                  color: "white", fontWeight: 900, fontSize: 16,
+                  cursor: "pointer",
+                  boxShadow: "0 6px 20px rgba(30,136,229,0.4)",
+                }}
+              >
+                ↻ Réessayer
+              </button>
+              <button
+                onClick={() => { clearSession(); navigate("/"); }}
+                style={{
+                  padding: "12px 32px", borderRadius: 14, border: "none",
+                  background: "linear-gradient(135deg, #e53935, #b71c1c)",
+                  color: "white", fontWeight: 900, fontSize: 16,
+                  cursor: "pointer",
+                  boxShadow: "0 6px 20px rgba(229,57,53,0.4)",
+                }}
+              >
+                Accueil
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -872,47 +1000,77 @@ export default function GamePage() {
       </AnimatePresence>
 
       {/* ── Sélecteur couleur wild ── */}
-      {colorPicker && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000,
-        }}>
+      {colorPicker && (() => {
+        const pickerColors = [
+          { key: "RED",    hex: "#e53935", label: "Rouge" },
+          { key: "BLUE",   hex: "#1e88e5", label: "Bleu"  },
+          { key: "GREEN",  hex: "#43a047", label: "Vert"  },
+          { key: "YELLOW", hex: "#fdd835", label: "Jaune" },
+        ];
+        const hovered = hoveredPickerColor;
+        return (
           <div style={{
-            background: "#1e1e2e", borderRadius: 20, padding: "28px 36px",
-            textAlign: "center", border: "1px solid rgba(255,255,255,0.12)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+            position: "fixed", inset: 0,
+            background: hovered ? `rgba(0,0,0,0.6)` : "rgba(0,0,0,0.75)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000,
+            transition: "background 0.25s ease",
           }}>
-            <div style={{ color: "white", fontWeight: 800, fontSize: 18, marginBottom: 20 }}>
-              Choisir une couleur
-            </div>
-            <div style={{ display: "flex", gap: 14 }}>
-              {[
-                { key: "RED",    hex: "#e53935", label: "Rouge" },
-                { key: "BLUE",   hex: "#1e88e5", label: "Bleu"  },
-                { key: "GREEN",  hex: "#43a047", label: "Vert"  },
-                { key: "YELLOW", hex: "#fdd835", label: "Jaune" },
-              ].map(({ key, hex, label }) => (
-                <button
-                  key={key}
-                  title={label}
-                  onClick={() => {
-                    const { card, sourceEl } = colorPicker;
-                    setColorPicker(null);
-                    executePlayCard(card, sourceEl, key);
-                  }}
-                  style={{
-                    width: 56, height: 56, borderRadius: 12, border: "3px solid rgba(255,255,255,0.2)",
-                    background: hex, cursor: "pointer", transition: "transform 0.15s",
-                    boxShadow: `0 4px 16px ${hex}88`,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.transform = "scale(1.15)"}
-                  onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-                />
-              ))}
+            {/* Halo couleur survolée derrière la modale */}
+            {hovered && (
+              <div style={{
+                position: "absolute", inset: 0, pointerEvents: "none",
+                background: hovered,
+                opacity: 0.12,
+                transition: "background 0.25s ease",
+              }} />
+            )}
+            <div style={{
+              background: hovered
+                ? `linear-gradient(145deg, ${hovered}33 0%, #1e1e2e 55%)`
+                : "#1e1e2e",
+              borderRadius: 20, padding: "28px 36px",
+              textAlign: "center",
+              border: hovered ? `1px solid ${hovered}66` : "1px solid rgba(255,255,255,0.12)",
+              boxShadow: hovered
+                ? `0 20px 60px rgba(0,0,0,0.6), 0 0 40px ${hovered}44`
+                : "0 20px 60px rgba(0,0,0,0.6)",
+              transition: "background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
+              position: "relative",
+            }}>
+              <div style={{ color: "white", fontWeight: 800, fontSize: 18, marginBottom: 20 }}>
+                Choisir une couleur
+              </div>
+              <div style={{ display: "flex", gap: 14 }}>
+                {pickerColors.map(({ key, hex, label }) => (
+                  <button
+                    key={key}
+                    title={label}
+                    onClick={() => {
+                      play('colorChosen');
+                      const { card, sourceEl } = colorPicker;
+                      setColorPicker(null);
+                      setHoveredPickerColor(null);
+                      executePlayCard(card, sourceEl, key);
+                    }}
+                    style={{
+                      width: 64, height: 64, borderRadius: 14,
+                      border: hoveredPickerColor === hex ? `3px solid white` : "3px solid rgba(255,255,255,0.2)",
+                      background: hex, cursor: "pointer",
+                      transition: "transform 0.15s, border-color 0.15s, box-shadow 0.15s",
+                      transform: hoveredPickerColor === hex ? "scale(1.22)" : "scale(1)",
+                      boxShadow: hoveredPickerColor === hex
+                        ? `0 6px 28px ${hex}cc, 0 0 0 4px ${hex}44`
+                        : `0 4px 16px ${hex}88`,
+                    }}
+                    onMouseEnter={() => setHoveredPickerColor(hex)}
+                    onMouseLeave={() => setHoveredPickerColor(null)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Carte volante ── */}
       <AnimatePresence>
