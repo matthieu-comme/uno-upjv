@@ -78,13 +78,23 @@
 
 .home-logo {
   text-align: center;
-  margin-bottom: 52px;
+  margin-bottom: 52px; /* ↕ espace entre le logo et le menu — augmenter pour descendre le menu */
+  margin-top: 0px;     /* ↕ espace au-dessus du logo — augmenter pour descendre le logo */
 }
 
 .home-logo-img {
-  max-height: 110px;
+  /* ── Taille ── */
+  max-height: 300px;   /* hauteur max du logo — augmenter pour agrandir */
+  width: auto;         /* largeur automatique (conserve les proportions) */
+  /* max-width: 340px; */ /* décommenter pour limiter la largeur max */
+
+  /* ── Centrage ── */
   display: block;
-  margin: 0 auto;
+  margin: 0 auto;      /* centré horizontalement */
+
+  /* ── Effets ── */
+  /* filter: drop-shadow(0 8px 24px rgba(229,57,53,0.4)); */ /* décommenter pour ajouter une ombre colorée */
+  /* opacity: 0.95; */  /* décommenter pour légèrement transparenter */
 }
 
 .home-logo-text {
@@ -106,6 +116,26 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.resume-btn {
+  width: 100%;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(30, 136, 229, 0.5);
+  background: rgba(30, 136, 229, 0.15);
+  color: #90caf9;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: background 0.2s, transform 0.2s;
+  margin-bottom: 8px;
+}
+
+.resume-btn:hover {
+  background: rgba(30, 136, 229, 0.28);
+  transform: translateX(6px);
 }
 
 .menu-item {
@@ -407,6 +437,32 @@
 
 .settings-row span:first-child {
   color: rgba(255, 255, 255, 0.7);
+}
+
+.slow-load-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+  text-align: center;
+}
+
+.sound-toggle {
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.sound-toggle--on {
+  background: rgba(67, 160, 71, 0.25);
+  border-color: rgba(67, 160, 71, 0.5);
+  color: #a5d6a7;
 }
 
 /* =========================

@@ -319,7 +319,7 @@ body {
 .stack-card-bg {
   position: absolute;
   inset: 0;
-  border-radius: 14px;
+  border-radius: 16px;
   background: #111;
   border: 2px solid rgba(255, 255, 255, 0.22);
 }
@@ -342,22 +342,26 @@ body {
    FLÈCHES DE DIRECTION
 ========================= */
 
-.direction-wheel {
+.direction-orbit {
   position: absolute;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 1;
+  overflow: visible;
 }
 
-.direction-arrows {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 0;
+.direction-orbit--cw {
+  animation: orbit-spin 9s linear infinite;
+}
+
+.direction-orbit--ccw {
+  animation: orbit-spin 9s linear infinite reverse;
+}
+
+@keyframes orbit-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 /* =========================
@@ -508,11 +512,11 @@ body {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 48px;
-  height: 68px;
+  width: 52px;
+  height: 74px;
   border-radius: 10px;
   border: 2px solid rgba(255, 255, 255, 0.22);
-  background: #111;
+  background: #111 url('/cards/back.png') center / 150% 150% no-repeat;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
   transform-origin: center center;
 }
@@ -556,6 +560,47 @@ body {
   background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0));
   z-index: 4;
   overflow: hidden;
+  border-bottom: 3px solid transparent;
+  transition: border-bottom-color 0.4s ease, background 0.4s ease;
+}
+
+.player-hand-zone.my-turn {
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--turn-color, #ffc800) 18%, transparent),
+    color-mix(in srgb, var(--turn-color, #ffc800) 4%, transparent),
+    rgba(0, 0, 0, 0)
+  );
+  border-bottom-color: color-mix(in srgb, var(--turn-color, #ffc800) 55%, transparent);
+  animation: hand-zone-glow 2s ease-in-out infinite;
+}
+
+@keyframes hand-zone-glow {
+  0%, 100% {
+    border-bottom-color: color-mix(in srgb, var(--turn-color, #ffc800) 45%, transparent);
+    box-shadow: inset 0 -3px 20px color-mix(in srgb, var(--turn-color, #ffc800) 8%, transparent);
+  }
+  50% {
+    border-bottom-color: color-mix(in srgb, var(--turn-color, #ffc800) 85%, transparent);
+    box-shadow: inset 0 -3px 40px color-mix(in srgb, var(--turn-color, #ffc800) 18%, transparent);
+  }
+}
+
+.hand-turn-flash {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 200, 0, 0.95);
+  color: #2a0000;
+  font-weight: 900;
+  font-size: 16px;
+  padding: 7px 26px;
+  border-radius: 999px;
+  z-index: 20;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(255, 200, 0, 0.55);
+  pointer-events: none;
 }
 
 .hand.fan {
@@ -701,6 +746,42 @@ body {
    RESPONSIVE
 ========================= */
 
+@media (min-width: 1300px) {
+  :root {
+    --hand-zone-height: 280px;
+  }
+
+  .hand.fan {
+    transform: scale(1.18);
+    transform-origin: bottom center;
+    height: 230px;
+  }
+
+  .opponent-label {
+    font-size: 15px;
+  }
+
+  .opponent-card-back {
+    width: 60px;
+    height: 85px;
+  }
+
+  .opponent-cards {
+    width: 160px;
+    height: 100px;
+  }
+
+  .turn-pill {
+    font-size: 15px;
+    padding: 7px 22px;
+  }
+
+  .hand-turn-flash {
+    font-size: 20px;
+    padding: 9px 32px;
+  }
+}
+
 @media (max-width: 1100px) {
   :root {
     --table-w: min(840px, 84vw);
@@ -736,7 +817,35 @@ body {
 
   .seat.left, .seat.right { display: none; }
 
-  .hand.fan { height: 175px; width: 98vw; }
+  /* Main scrollable horizontalement sur mobile */
+  .hand.fan {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: visible;
+    width: 100%;
+    height: 130px;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 0 20px 8px;
+    gap: 8px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+
+  .hand.fan::-webkit-scrollbar { display: none; }
+
+  .handCard {
+    position: relative !important;
+    left: unset !important;
+    bottom: unset !important;
+    transform: none !important;
+    flex-shrink: 0;
+  }
+
+  .handCard.hovered {
+    transform: translateY(-14px) scale(1.06) !important;
+  }
 
   .table-uno-btn { padding: 6px 12px; font-size: 12px; bottom: 8px; right: 8px; }
 }
