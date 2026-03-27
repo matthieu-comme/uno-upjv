@@ -15,4 +15,5 @@ public class PlayerDTO {
   private boolean isConnected;
   private int handSize;
   private boolean isUnoCalled;
+  private int score;
 }

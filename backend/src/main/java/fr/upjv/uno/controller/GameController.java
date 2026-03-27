@@ -272,6 +272,7 @@ public class GameController {
                     .isConnected(p.isConnected())
                     .handSize(p.getHandSize())
                     .isUnoCalled(p.isUnoCalled())
+                    .score(p.getScore())
                     .build())
             .collect(Collectors.toList());
 

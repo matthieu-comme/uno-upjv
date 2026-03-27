@@ -24,6 +24,8 @@ public class Player {
 
   private boolean unoCalled = false;
 
+  private int score = 0;
+
   /**
    * @param id   Identifiant unique du joueur.
    * @param name Nom du joueur.
@@ -111,4 +113,11 @@ public class Player {
     this.hand.clear();
   }
 
+  /**
+   * Ajoute des points au score du joueur.
+   * @param points Points à ajouter.
+   */
+  public void addScore(int points) {
+    this.score += points;
+  }
 }

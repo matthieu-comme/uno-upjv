@@ -300,9 +300,7 @@ public class GameService {
     game.setStatus(GameStatus.FINISHED);
 
     int pointsWon = calculateScores(game);
-
-    // TODO: stocker score dans Player pour les parties en plusieurs manches
-    // winner.addScore(pointsWon);
+    winner.addScore(pointsWon);
   }
 
   /**
