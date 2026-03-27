@@ -6,8 +6,11 @@ const colorMap = {
   wild:   "#111",
 };
 
-export default function Card({ card, faceDown = false }) {
-  const bg = faceDown ? "#111" : (colorMap[card?.color] ?? "#222");
+export default function Card({ card, faceDown = false, tintColor = null }) {
+  const base = faceDown ? "#111" : (colorMap[card?.color] ?? "#222");
+  const bg = (!faceDown && tintColor && card?.color === "wild")
+    ? `linear-gradient(145deg, ${tintColor} 0%, #111 70%)`
+    : base;
 
   return (
     <div
@@ -15,13 +18,18 @@ export default function Card({ card, faceDown = false }) {
         width: 78,
         height: 112,
         borderRadius: 14,
-        border: "2px solid rgba(255,255,255,0.22)",
+        border: tintColor && card?.color === "wild" && !faceDown
+          ? `2px solid ${tintColor}99`
+          : "2px solid rgba(255,255,255,0.22)",
         background: bg,
         color: "white",
-        boxShadow: "0 10px 24px rgba(0,0,0,0.45)",
+        boxShadow: tintColor && card?.color === "wild" && !faceDown
+          ? `0 10px 24px rgba(0,0,0,0.45), 0 0 16px ${tintColor}66`
+          : "0 10px 24px rgba(0,0,0,0.45)",
         position: "relative",
         overflow: "hidden",
         userSelect: "none",
+        transition: "background 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease",
       }}
       title={faceDown ? "Carte" : `${card?.color} ${card?.value}`}
     >
