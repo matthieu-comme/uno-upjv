@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createGame, joinGame } from '../services/api';
+import { isSoundEnabled, toggleSound } from '../services/sounds';
 import '../styles/home.css';
 
 // ─── Cartes flottantes en arrière-plan ───────────────────────────────────────
@@ -44,6 +45,8 @@ const slideVariants = {
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 
+const SESSION_KEY = 'uno-session';
+
 export default function HomePage() {
   const navigate = useNavigate();
 
@@ -51,6 +54,15 @@ export default function HomePage() {
   const [direction, setDirection] = useState(1);
   const [activeIdx, setActiveIdx] = useState(0);
   const [logoError, setLogoError] = useState(false);
+  const [resumeSession, setResumeSession] = useState(null);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled);
+
+  useEffect(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+      if (s?.gameId && s?.playerId) setResumeSession(s);
+    } catch {}
+  }, []);
 
   // Champs partagés
   const [playerName,  setPlayerName]  = useState(() => localStorage.getItem('uno_name') ?? '');
@@ -102,9 +114,12 @@ export default function HomePage() {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
+  const MAX_NAME = 12;
+
   function saveName(v) {
-    setPlayerName(v);
-    localStorage.setItem('uno_name', v);
+    const trimmed = v.slice(0, MAX_NAME);
+    setPlayerName(trimmed);
+    localStorage.setItem('uno_name', trimmed);
   }
 
   function handleExit() {
@@ -221,6 +236,16 @@ export default function HomePage() {
                 }
               </div>
 
+              {/* Reprendre une partie en cours */}
+              {resumeSession && (
+                <button
+                  className="resume-btn"
+                  onClick={() => navigate(`/game/${resumeSession.gameId}`)}
+                >
+                  ↩ Reprendre #{resumeSession.gameId}
+                </button>
+              )}
+
               {/* Items de menu */}
               <nav className="home-menu">
                 {MENU_ITEMS.map((item, idx) => (
@@ -267,12 +292,13 @@ export default function HomePage() {
               <div className="panel-body">
 
                 <div className="home-field">
-                  <label className="home-label">Pseudo</label>
+                  <label className="home-label">Pseudo <span style={{ opacity: 0.45, fontSize: 12 }}>({playerName.length}/{MAX_NAME})</span></label>
                   <input
                     className="home-input"
                     value={playerName}
                     onChange={e => saveName(e.target.value)}
                     placeholder="Ton pseudo"
+                    maxLength={MAX_NAME}
                     autoFocus
                     onKeyDown={e => e.key === 'Enter' && handleCreate()}
                   />
@@ -318,12 +344,13 @@ export default function HomePage() {
               <div className="panel-body">
 
                 <div className="home-field">
-                  <label className="home-label">Pseudo</label>
+                  <label className="home-label">Pseudo <span style={{ opacity: 0.45, fontSize: 12 }}>({playerName.length}/{MAX_NAME})</span></label>
                   <input
                     className="home-input"
                     value={playerName}
                     onChange={e => saveName(e.target.value)}
                     placeholder="Ton pseudo"
+                    maxLength={MAX_NAME}
                   />
                 </div>
 
@@ -373,19 +400,25 @@ export default function HomePage() {
               <div className="panel-body">
 
                 <div className="home-field">
-                  <label className="home-label">Pseudo (sauvegardé)</label>
+                  <label className="home-label">Pseudo (sauvegardé) <span style={{ opacity: 0.45, fontSize: 12 }}>({playerName.length}/{MAX_NAME})</span></label>
                   <input
                     className="home-input"
                     value={playerName}
                     onChange={e => saveName(e.target.value)}
                     placeholder="Ton pseudo"
+                    maxLength={MAX_NAME}
                     autoFocus
                   />
                 </div>
 
                 <div className="settings-row">
-                  <span>🔊 Volume</span>
-                  <span>bientôt disponible</span>
+                  <span>{soundOn ? '🔊' : '🔇'} Sons</span>
+                  <button
+                    className={`sound-toggle${soundOn ? ' sound-toggle--on' : ''}`}
+                    onClick={() => setSoundOn(toggleSound())}
+                  >
+                    {soundOn ? 'Activés' : 'Désactivés'}
+                  </button>
                 </div>
                 <div className="settings-row">
                   <span>🎨 Thème des cartes</span>
