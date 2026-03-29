@@ -91,3 +91,10 @@ export function callUno(gameId, playerId) {
     body: JSON.stringify({ playerId }),
   });
 }
+
+export function voteRematch(gameId, playerId) {
+  return request(`${BASE_URL}/${gameId}/rematch`, {
+    method: 'POST',
+    body: JSON.stringify({ playerId }),
+  });
+}

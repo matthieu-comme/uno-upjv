@@ -190,12 +190,13 @@ export default function GamePage() {
           const w = state.players?.find(p => p.handSize === 0)
                  ?? state.players?.[state.currentPlayerIndex];
           const endNavState = {
-            winner:     w?.name ?? "Inconnu",
-            winnerId:   w?.id,
-            players:    state.players,
+            winner:          w?.name ?? "Inconnu",
+            winnerId:        w?.id,
+            players:         state.players,
             playerId,
-            playerName: navState?.playerName ?? savedSession?.playerName,
+            playerName:      navState?.playerName ?? savedSession?.playerName,
             gameId,
+            humanPlayerIds:  [...humanPlayerIds],
           };
           play('win');
           setWinnerOverlay({ name: w?.name ?? "Inconnu", countdown: 10, navState: endNavState });
