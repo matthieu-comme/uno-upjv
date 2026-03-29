@@ -3,12 +3,6 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { leaveGame } from '../services/api';
 
-// Barème officiel UNO (estimation depuis handSize uniquement)
-// Ces valeurs servent à afficher une fourchette indicative
-const CARD_POINT_HINT = {
-  note: "Chiffres 0-9 = face · Action (Skip/Rev/+2) = 20 pts · Joker/+4 = 50 pts",
-};
-
 export default function EndPage() {
   const navigate   = useNavigate();
   const { gameId } = useParams();
@@ -19,6 +13,8 @@ export default function EndPage() {
   const winnerId   = state?.winnerId;
   const players    = state?.players    ?? [];
   const playerId   = state?.playerId;
+
+  const winnerScore = players.find(p => p.id === winnerId)?.score ?? null;
 
   async function handleLeave() {
     if (hasLeftRef.current) return;
@@ -64,6 +60,11 @@ export default function EndPage() {
         <p style={{ margin: 0, fontSize: 'clamp(16px, 3vw, 22px)', opacity: 0.9 }}>
           Gagnant : <strong style={{ color: '#ffd700', textShadow: '0 0 20px rgba(255,215,0,0.6)' }}>{winner}</strong>
         </p>
+        {winnerScore != null && winnerScore > 0 && (
+          <p style={{ margin: '6px 0 0', fontSize: 'clamp(14px, 2.5vw, 18px)', color: '#a5d6a7', fontWeight: 700 }}>
+            +{winnerScore} points
+          </p>
+        )}
       </motion.div>
 
       {/* Classement */}
@@ -108,47 +109,42 @@ export default function EndPage() {
                 }}>
                   {p.name}{me ? ' (toi)' : ''}
                 </span>
-                <span style={{
-                  fontSize: 13, fontWeight: 700,
-                  color: win ? '#a5d6a7' : 'rgba(255,255,255,0.45)',
-                }}>
-                  {win ? '0 carte ✓' : `${p.handSize} carte${p.handSize > 1 ? 's' : ''}`}
-                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                  <span style={{
+                    fontSize: 13, fontWeight: 700,
+                    color: win ? '#a5d6a7' : 'rgba(255,255,255,0.45)',
+                  }}>
+                    {win ? '0 carte ✓' : `${p.handSize} carte${p.handSize > 1 ? 's' : ''}`}
+                  </span>
+                  {p.score != null && p.score > 0 && (
+                    <span style={{ fontSize: 11, fontWeight: 800, color: win ? '#ffd700' : 'rgba(255,255,255,0.3)' }}>
+                      +{p.score} pts
+                    </span>
+                  )}
+                </div>
               </motion.div>
             );
           })}
         </motion.div>
       )}
 
-      {/* Règle de points UNO */}
+      {/* Barème rappel */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 }}
         style={{
           background: 'rgba(255,255,255,0.04)',
-          borderRadius: 14, padding: '14px 20px',
+          borderRadius: 14, padding: '12px 20px',
           maxWidth: 'min(380px, 90vw)',
           border: '1px solid rgba(255,255,255,0.07)',
           textAlign: 'center',
         }}
       >
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, opacity: 0.35, marginBottom: 10, textTransform: 'uppercase' }}>
-          Barème officiel UNO
+        <div style={{ fontSize: 11, opacity: 0.35, letterSpacing: 0.5 }}>
+          Chiffres = valeur · Skip/Rev/+2 = 20 pts · Joker/+4 = 50 pts
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
-          {[
-            { label: 'Chiffres', value: '= face', color: '#42a5f5' },
-            { label: 'Skip / Rev / +2', value: '= 20 pts', color: '#ffb74d' },
-            { label: 'Joker / +4', value: '= 50 pts', color: '#ef9a9a' },
-          ].map(({ label, value, color }) => (
-            <div key={label} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color, fontWeight: 700, marginBottom: 2 }}>{label}</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.75)' }}>{value}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ fontSize: 11, opacity: 0.3, marginTop: 10 }}>
+        <div style={{ fontSize: 11, opacity: 0.25, marginTop: 4 }}>
           Le gagnant récupère les points des mains adverses.
         </div>
       </motion.div>

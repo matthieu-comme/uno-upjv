@@ -16,11 +16,18 @@ function cardImagePath(card, faceDown) {
   if (value === '+2')      return `/cards/draw-two-${color}.png`;
   if (value === 'Skip')    return `/cards/skip-${color}.png`;
   if (value === 'Reverse') return `/cards/reverse-${color}.png`;
-  return null; // cartes numérotées → rendu CSS
+  // cartes numérotées (0-9)
+  if (/^\d$/.test(value))  return `/cards/${value}-${color}.png`;
+  return null;
 }
 
+import { useEffect, useState } from "react";
+
 export default function Card({ card, faceDown = false, tintColor = null }) {
-  const imgPath = cardImagePath(card, faceDown);
+  const [imgError, setImgError] = useState(false);
+  const rawPath = cardImagePath(card, faceDown);
+  useEffect(() => { setImgError(false); }, [rawPath]);
+  const imgPath = imgError ? null : rawPath;
 
   const base = faceDown ? "#111" : (colorMap[card?.color] ?? "#222");
   const bg = (!faceDown && tintColor && card?.color === "wild")
@@ -57,16 +64,17 @@ export default function Card({ card, faceDown = false, tintColor = null }) {
           alt={faceDown ? "Carte" : `${card?.color} ${card?.value}`}
           style={{
             width: "100%",
-            height: faceDown ? "110%" : "100%", // "face cachée" : "face avant"
+            height: faceDown ? "110%" : "100%",
             objectFit: "cover",
-            transform: faceDown ? "scale(1.10) translateY(0%)" : "scale(1)", // changer la taille de l'image pour les cartes "face cachée" : "face avant"
+            transform: faceDown ? "scale(1.10) translateY(0%)" : "scale(1)",
             borderRadius: 12,
             display: "block",
           }}
           draggable={false}
+          onError={() => setImgError(true)}
         />
       ) : (
-        /* ── Rendu CSS (cartes numérotées) ── */
+        /* ── Rendu CSS (fallback numérotées) ── */
         <>
           <div style={{
             position: "absolute",

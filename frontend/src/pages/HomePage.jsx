@@ -71,7 +71,7 @@ export default function HomePage() {
   // Champs partagés
   const [playerName,  setPlayerName]  = useState(() => localStorage.getItem('uno_name') ?? '');
   const [maxPlayers,  setMaxPlayers]  = useState(2);
-  const [code,        setCode]        = useState(Array(8).fill(''));
+  const [code,        setCode]        = useState(Array(4).fill(''));
   const [error,       setError]       = useState('');
   const [loading,     setLoading]     = useState(false);
 
@@ -160,7 +160,7 @@ export default function HomePage() {
   async function handleJoin() {
     const joinCode = code.join('');
     if (!playerName.trim())  return setError('Entre ton pseudo');
-    if (joinCode.length < 8) return setError('Entre le code complet (8 caractères)');
+    if (joinCode.length < 4) return setError('Entre le code complet (4 caractères)');
     setLoading(true);
     setSlowLoad(false);
     setError('');
@@ -187,7 +187,7 @@ export default function HomePage() {
     const next = [...code];
     next[idx]  = val;
     setCode(next);
-    if (val && idx < 7) otpRefs.current[idx + 1]?.focus();
+    if (val && idx < 3) otpRefs.current[idx + 1]?.focus();
   }
 
   function handleOtpKeyDown(e, idx) {
@@ -201,12 +201,12 @@ export default function HomePage() {
 
   function handleOtpPaste(e) {
     e.preventDefault();
-    const pasted = e.clipboardData.getData('text').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    const pasted = e.clipboardData.getData('text').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
     if (!pasted) return;
-    const next = Array(8).fill('');
+    const next = Array(4).fill('');
     [...pasted].forEach((c, i) => { next[i] = c; });
     setCode(next);
-    otpRefs.current[Math.min(pasted.length, 7)]?.focus();
+    otpRefs.current[Math.min(pasted.length, 3)]?.focus();
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────

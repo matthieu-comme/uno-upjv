@@ -132,6 +132,8 @@ export default function GamePage() {
       const t = setTimeout(() => setMyTurnFlash(false), 2000);
       return () => clearTimeout(t);
     }
+    // Tour passé → on cache immédiatement
+    if (!nowMyTurn && wasMyTurn) setMyTurnFlash(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.currentPlayerIndex, gameState?.status]);
 
