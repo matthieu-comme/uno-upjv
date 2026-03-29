@@ -178,7 +178,8 @@ public class GameController {
 
   /**
    * Déclenche un Uno ou un Contre-Uno.
-   * @param gameId Identifiant de la partie.
+   *
+   * @param gameId  Identifiant de la partie.
    * @param request On réutilise DrawCardRequest car elle contient juste un playerId.
    * @return OK si action valide, BadRequest sinon.
    */
@@ -239,7 +240,8 @@ public class GameController {
 
   /**
    * Signale au serveur qu'un joueur s'est reconnecté.
-   * @param gameId Identifiant de la partie.
+   *
+   * @param gameId   Identifiant de la partie.
    * @param playerId Identifiant du joueur.
    * @return OK si le joueur est reconnecté, BadRequest sinon.
    */
@@ -252,6 +254,27 @@ public class GameController {
       return ResponseEntity.ok().build();
     } catch (IllegalArgumentException e) {
       return ResponseEntity.notFound().build();
+    }
+  }
+
+  /**
+   * Enregistre le vote d'un joueur pour relancer une partie.
+   *
+   * @param gameId  Identifiant de la partie.
+   * @param request Requête contenant l'identifiant du joueur.
+   * @return OK si le vote est pris en compte, BadRequest sinon.
+   */
+  @PostMapping("/{gameId}/rematch")
+  public ResponseEntity<Void> voteRematch(@PathVariable String gameId, @RequestBody DrawCardRequest request) {
+    try {
+      gameService.voteRematch(gameId, request.getPlayerId());
+
+      Game game = gameService.getGame(gameId);
+      broadcastGameState(game); // On diffuse immédiatement la progression du vote
+
+      return ResponseEntity.ok().build();
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      return ResponseEntity.badRequest().build();
     }
   }
 
@@ -302,6 +325,9 @@ public class GameController {
             .currentPlayerIndex(game.getCurrentPlayerIndex())
             .players(playerDTOs)
             .myHand(myHand)
+            .rematchVotes(game.getRematchVoteCount())
+            .rematchNeeded(game.getHumanPlayerCount())
+            .rematchExpired(game.isRematchExpired())
             .build();
   }
 }

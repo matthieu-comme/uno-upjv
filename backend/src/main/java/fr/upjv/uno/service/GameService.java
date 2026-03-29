@@ -321,6 +321,56 @@ public class GameService {
   }
 
   /**
+   * Gère le vote pour une revanche.
+   * Après le premier vote, un timer de 30 sec s'enclenche.
+   * Si tous les joueurs votent dans le temps imparti, une partie recommence.
+   * Sinon, elle est effacée.
+   *
+   * @param gameId   Identifiant de la partie.
+   * @param playerId Identifiant du joueur qui vote.
+   */
+  public void voteRematch(String gameId, String playerId) {
+    Game game = getGame(gameId);
+
+    if (game.getStatus() != GameStatus.FINISHED) {
+      throw new IllegalStateException("Impossible de voter, la partie n'est pas terminée.");
+    }
+
+    boolean isFirstVote = game.getRematchVoteCount() == 0;
+    game.addRematchVoter(playerId);
+
+    int humanCount = game.getHumanPlayerCount();
+
+    if (game.getRematchVoteCount() >= humanCount) {
+      game.clearRematchVoters();
+      restartGame(gameId);
+      return;
+    }
+
+    if (isFirstVote) {
+      CompletableFuture.delayedExecutor(30, TimeUnit.SECONDS).execute(() -> {
+        try {
+          Game g = getGame(gameId);
+
+          if (g.getStatus() == GameStatus.FINISHED && g.getRematchVoteCount() > 0) {
+            g.setRematchExpired(true);
+
+            if (broadcastCallback != null) {
+              broadcastCallback.accept(g);
+            }
+
+            CompletableFuture.delayedExecutor(10, TimeUnit.SECONDS).execute(() -> {
+              removeGame(gameId);
+            });
+          }
+        } catch (IllegalArgumentException ignored) {
+          // La partie n'existe déjà plus
+        }
+      });
+    }
+  }
+
+  /**
    * Fait piocher une carte au joueur dont c'est le tour et passe au joueur suivant.
    *
    * @param gameId   Identifiant de la partie.

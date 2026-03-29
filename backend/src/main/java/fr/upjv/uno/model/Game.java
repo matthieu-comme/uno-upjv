@@ -9,6 +9,8 @@ import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Représente l'état d'une partie de Uno.
@@ -37,6 +39,11 @@ public class Game {
 
   @Setter
   private Color activeColor;
+
+  private final Set<String> rematchVoters = ConcurrentHashMap.newKeySet();
+
+  @Setter
+  private boolean rematchExpired = false;
 
   /**
    * @param id          Identifiant unique de la partie.
@@ -216,6 +223,45 @@ public class Game {
 
     this.status = GameStatus.IN_PROGRESS;
     this.currentPlayerIndex = 0;
+  }
+
+  /**
+   * Ajoute un joueur à la liste des votants.
+   * @param playerId Identifiant du joueur qui a voté
+   * @return {@code true} si le set ne contenait pas déjà playerId.
+   */
+  public boolean addRematchVoter(String playerId) {
+    return rematchVoters.add(playerId);
+  }
+
+  /**
+   * Efface la liste des votants et passe rematchExpired à {@code false}.
+   */
+  public void clearRematchVoters() {
+    rematchVoters.clear();
+    rematchExpired = false;
+  }
+
+  /**
+   * Permet d'obtenir le nombre de votants.
+   * @return le nombre de votants.
+   */
+  public int getRematchVoteCount() {
+    return rematchVoters.size();
+  }
+
+  /**
+   * Calcule le nombre de joueurs humains (non-bots).
+   * @return nombre d'humains.
+   */
+  public int getHumanPlayerCount() {
+    int count = 0;
+    for (Player p : players) {
+      if (!(p instanceof AIPlayer)) {
+        count++;
+      }
+    }
+    return count;
   }
 
 }

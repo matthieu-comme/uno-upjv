@@ -23,6 +23,10 @@ public class GameStateDTO {
   private List<PlayerDTO> players;
   private int deckSize;
 
+  private int rematchVotes;
+  private int rematchNeeded;
+  private boolean rematchExpired;
+
   /** Cartes possédées par le joueur qui reçoit ce DTO. */
   private List<CardDTO> myHand;
 }
