@@ -1,6 +1,11 @@
 /**
- * Sounds service — génère tous les effets sonores via Web Audio API.
- * Aucun fichier audio externe nécessaire.
+ * Service sons — effets audio synthétisés via Web Audio API.
+ * Aucun fichier audio externe requis.
+ *
+ * Effets disponibles (appeler via play('nom')) :
+ *   playCard, drawCard, uno, counterUno, myTurn, penalty, colorChosen, win, error
+ *
+ * Le son peut être activé/désactivé via toggleSound() — persisté en localStorage.
  */
 
 let _ctx = null;

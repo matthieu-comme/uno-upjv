@@ -45,6 +45,7 @@ const slideVariants = {
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 
+// Clé partagée avec GamePage pour la reprise de session
 const SESSION_KEY = 'uno-session';
 
 export default function HomePage() {
@@ -58,7 +59,7 @@ export default function HomePage() {
   const [soundOn,       setSoundOn]       = useState(isSoundEnabled);
   const [slowLoad,      setSlowLoad]      = useState(false);
 
-  // Ping préventif : réveille le serveur dès l'ouverture de la page
+  // Ping préventif au chargement : réveille le serveur backend si endormi (Render free tier)
   useEffect(() => { ping(); }, []);
 
   useEffect(() => {
@@ -132,6 +133,7 @@ export default function HomePage() {
   }
 
   // ── Créer ──────────────────────────────────────────────────────────────────
+  // Appels API : POST /create → POST /{gameId}/join → redirige vers /lobby
 
   async function handleCreate() {
     if (!playerName.trim()) return setError('Entre ton pseudo');
@@ -156,6 +158,7 @@ export default function HomePage() {
   }
 
   // ── Rejoindre ──────────────────────────────────────────────────────────────
+  // Appel API : POST /{gameId}/join → redirige vers /lobby
 
   async function handleJoin() {
     const joinCode = code.join('');
@@ -283,9 +286,6 @@ export default function HomePage() {
                 ))}
               </nav>
 
-              <div className="home-preview">
-                <a href="/game/TESTCODE">preview jeu</a>
-              </div>
             </motion.div>
           )}
 
@@ -437,14 +437,6 @@ export default function HomePage() {
                   >
                     {soundOn ? 'Activés' : 'Désactivés'}
                   </button>
-                </div>
-                <div className="settings-row">
-                  <span>🎨 Thème des cartes</span>
-                  <span>bientôt disponible</span>
-                </div>
-                <div className="settings-row" style={{ borderBottom: 'none' }}>
-                  <span>🌐 Langue</span>
-                  <span>bientôt disponible</span>
                 </div>
               </div>
             </motion.div>

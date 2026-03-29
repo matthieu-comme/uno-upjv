@@ -37,12 +37,22 @@ function normalizeCard(c) {
   };
 }
 
+function normalizePlayer(p) {
+  if (!p) return null;
+  return {
+    ...p,
+    isUnoCalled: !!(p.isUnoCalled ?? p.unoCalled),
+    isConnected: !!(p.isConnected ?? p.connected ?? true),
+  };
+}
+
 function normalizeState(state) {
   if (!state) return null;
   return {
     ...state,
     topCard: normalizeCard(state.topCard),
     myHand:  (state.myHand ?? []).map(normalizeCard),
+    players: (state.players ?? []).map(normalizePlayer),
   };
 }
 
@@ -65,6 +75,18 @@ function clearSession() {
   try { localStorage.removeItem(SESSION_KEY); } catch {}
 }
 
+/**
+ * Page principale du jeu.
+ *
+ * Appels serveur :
+ *   WS  /topic/game/{gameId}/{playerId} — mises à jour temps réel (état, overlays, fin de partie)
+ *   GET /state/{playerId}               — récupère l'état courant (reconnexion / polling bot)
+ *   POST /reconnect/{playerId}          — signale au backend le retour d'un joueur
+ *   POST /play                          — jouer une carte
+ *   POST /draw                          — piocher une carte
+ *   POST /uno                           — annoncer UNO ou contre-UNO
+ *   POST /leave                         — quitter la partie
+ */
 export default function GamePage() {
   const { gameId } = useParams();
   const { state: navState } = useLocation();
@@ -106,7 +128,6 @@ export default function GamePage() {
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   // Verrou local : désactive immédiatement le bouton UNO après un clic, avant la réponse backend
   const [unoLocalLock, setUnoLocalLock] = useState(false);
-  // L'état UNO est entièrement géré par le backend via isUnoCalled dans PlayerDTO
 
   const deckRef        = useRef(null);
   const discardRef     = useRef(null);
@@ -115,8 +136,6 @@ export default function GamePage() {
   const [flyingCard, setFlyingCard] = useState(null);
   const flyingDoneRef  = useRef(null);
   const unoTimerRef    = useRef(null);
-  const unoLastCallRef = useRef(0);
-  const UNO_COOLDOWN   = 1500; // ms
   const prevIsMyTurnRef = useRef(false);
   const [myTurnFlash, setMyTurnFlash] = useState(false);
 
@@ -161,15 +180,19 @@ export default function GamePage() {
     });
   }, [gameId, playerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Reconnexion automatique si retour après fermeture onglet ────────────────
-  useEffect(() => {
-    if (!isRejoining || !gameId || !playerId) return;
-    // Signale au backend que le joueur est de retour
+  // ─── Helper partagé : reconnexion + récupération d'état ─────────────────────
+  // Utilisé lors : (1) retour après fermeture onglet, (2) reconnexion WS, (3) bouton Réessayer
+  function refreshGameState() {
     apiReconnectPlayer(gameId, playerId).catch(() => {});
-    // Charge l'état courant immédiatement
     apiGetGameState(gameId, playerId)
       .then(s => { if (s) setGameState(normalizeState(s)); })
       .catch(() => {});
+  }
+
+  // ─── Reconnexion automatique si retour après fermeture onglet ────────────────
+  useEffect(() => {
+    if (!isRejoining || !gameId || !playerId) return;
+    refreshGameState();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── WebSocket ───────────────────────────────────────────────────────────────
@@ -205,11 +228,9 @@ export default function GamePage() {
       (status, attempt, max) => {
         if (status === 'connected' || status === 'reconnected') {
           setWsStatus("connected");
+          // WS rétabli après coupure : resynchronise l'état
           if (status === 'reconnected') {
-            apiReconnectPlayer(gameId, playerId).catch(() => {});
-            apiGetGameState(gameId, playerId)
-              .then(s => { if (s) setGameState(normalizeState(s)); })
-              .catch(() => {});
+            refreshGameState();
           }
         } else if (status === 'reconnecting') {
           setWsStatus(`reconnecting:${attempt}:${max}`);
@@ -222,6 +243,8 @@ export default function GamePage() {
   }, [gameId, playerId, navigate, retryKey]);
 
   // ─── Polling fallback quand c'est le tour d'un bot ───────────────────────────
+  // Le bot joue côté serveur mais ne pousse pas toujours de WS update rapide.
+  // On poll GET /state/{playerId} toutes les 2s uniquement quand un bot joue.
   useEffect(() => {
     if (!gameId || !playerId) return;
     const currentPlayerId = gameState?.players?.[gameState?.currentPlayerIndex]?.id;
@@ -233,7 +256,7 @@ export default function GamePage() {
         const state = await apiGetGameState(gameId, playerId);
         if (state) setGameState(normalizeState(state));
       } catch {
-        // endpoint pas encore disponible — silencieux
+        // silencieux — le WS prend le relais si disponible
       }
     }, 2000);
 
@@ -403,13 +426,11 @@ export default function GamePage() {
     setTimeout(() => setNotification(null), duration);
   }
 
+  // Bouton "Réessayer" après échec total de connexion WS
   function handleRetry() {
     setWsStatus("connecting");
-    setRetryKey(k => k + 1);
-    apiReconnectPlayer(gameId, playerId).catch(() => {});
-    apiGetGameState(gameId, playerId)
-      .then(s => { if (s) setGameState(normalizeState(s)); })
-      .catch(() => {});
+    setRetryKey(k => k + 1); // force le useEffect WebSocket à se réexécuter
+    refreshGameState();
   }
 
   function rectOf(el) {
@@ -427,6 +448,8 @@ export default function GamePage() {
   }
 
   // ─── Jouer une carte ─────────────────────────────────────────────────────────
+  // Vérifie la jouabilité localement avant d'envoyer POST /play.
+  // Si la carte est un joker, ouvre le sélecteur de couleur d'abord.
   async function handlePlayCard(card, sourceEl) {
     if (!isMyTurn) return;
 
@@ -454,6 +477,7 @@ export default function GamePage() {
   }
 
   // ─── Piocher une carte ───────────────────────────────────────────────────────
+  // Déclenche l'animation volante + POST /draw. Aussi appelé automatiquement à 0s de timer.
   function handleDraw() {
     if (!isMyTurn) return;
 
@@ -473,28 +497,17 @@ export default function GamePage() {
   }
 
   // ─── UNO & Contre-UNO ────────────────────────────────────────────────────────
-  // Même endpoint /uno pour les deux cas.
-  // Le backend décide : appelant avec 1 carte → UNO annoncé,
-  // sinon → pénalité +2 sur les adversaires avec 1 carte non protégés.
+  // Un seul endpoint. Backend décide : 1 carte → UNO annoncé, sinon → contre-UNO.
+  // L'overlay est déclenché UNIQUEMENT par le broadcast WS → visible sur tous les écrans.
   function handleUno() {
-    if (myHand.length !== 1 || myPlayerData?.isUnoCalled || unoLocalLock) return;
-    const now = Date.now();
-    if (now - unoLastCallRef.current < UNO_COOLDOWN) return;
-    unoLastCallRef.current = now;
-    setUnoLocalLock(true); // verrou immédiat côté client
-    play('uno');
-    clearTimeout(unoTimerRef.current);
-    setUnoOverlay({ name: myPlayerData?.name ?? "Moi", isMe: true });
-    unoTimerRef.current = setTimeout(() => setUnoOverlay(null), 2200);
+    if (unoLocalLock || myHand.length !== 1 || myPlayerData?.isUnoCalled) return;
+    setUnoLocalLock(true);
     apiCallUno(gameId, playerId).catch(() => {});
   }
 
   function handleCounterUno() {
-    if (counterUnoTargets.length === 0 || unoLocalLock) return;
-    const now = Date.now();
-    if (now - unoLastCallRef.current < UNO_COOLDOWN) return;
-    unoLastCallRef.current = now;
-    setUnoLocalLock(true); // verrou immédiat côté client
+    if (unoLocalLock || counterUnoTargets.length === 0) return;
+    setUnoLocalLock(true);
     apiCallUno(gameId, playerId).catch(() => {});
   }
 
@@ -540,7 +553,7 @@ export default function GamePage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [counterUnoTargets, myHand, myPlayerData, players]);
+  }, [counterUnoTargets, myHand, myPlayerData]);
 
   // ─── Render ──────────────────────────────────────────────────────────────────
   // Couleur effective : activeColor (joker) ou couleur de la topCard (carte normale)
@@ -735,7 +748,7 @@ export default function GamePage() {
                     {isBot(p.id) && <span className="bot-badge">🤖</span>}
                     {p.name}
                     {!p.isConnected && !isBot(p.id) && <span className="disconnected-badge"> 📡</span>}
-                    {p.isUnoCalled && <span className="uno-badge"> UNO!</span>}
+                    {p.isUnoCalled && <span className="uno-badge"> 🛡️</span>}
                     {isActive && <span className="turn-arrow"> ▶</span>}
                   </div>
                 </div>
@@ -825,9 +838,8 @@ export default function GamePage() {
             {status === "IN_PROGRESS" && (() => {
               const counterTarget  = counterUnoTargets[0];
               const canUno         = myHand.length === 1 && !myPlayerData?.isUnoCalled;
-              // Bloqué si quelqu'un a déjà appelé UNO (source de vérité : backend)
-              const someoneCalledUno = players.some(p => p.isUnoCalled);
-              const isActive       = (counterTarget != null || canUno) && !someoneCalledUno && !unoLocalLock;
+              const someoneProtected = players.some(p => p.isUnoCalled);
+              const isActive         = (counterTarget != null || canUno) && !someoneProtected && !unoLocalLock;
               return (
                 <button
                   className={`table-uno-btn${isActive ? " active" : ""}`}
@@ -890,6 +902,9 @@ export default function GamePage() {
             <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 0.5 }}>
               carte{myHand.length > 1 ? "s" : ""}
             </span>
+            {myPlayerData?.isUnoCalled && (
+              <span style={{ fontSize: 14, lineHeight: 1 }} title="UNO annoncé — tu es protégé">🛡️</span>
+            )}
           </div>
         )}
       </section>
@@ -970,7 +985,7 @@ export default function GamePage() {
                 textShadow: "0 2px 12px rgba(0,0,0,0.8)",
                 letterSpacing: 2,
               }}>
-                {unoOverlay.isCounter ? `💀 Contre-UNO sur ${unoOverlay.name} !` : unoOverlay.name}
+                {unoOverlay.isCounter ? `💀 Contre-UNO sur ${unoOverlay.name} !` : `${unoOverlay.name} a dit UNO !`}
               </span>
             )}
           </motion.div>

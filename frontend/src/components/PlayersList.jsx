@@ -1,3 +1,7 @@
+/**
+ * Affiche la liste des joueurs avec leur nombre de cartes et leur statut UNO.
+ * Utilisé dans LobbyPage.
+ */
 export default function PlayersList({ players }) {
   return (
     <div

@@ -1,6 +1,11 @@
 import { useState } from "react";
 import Card from "./Card";
 
+/**
+ * Affiche la main du joueur en éventail.
+ * - Les cartes s'écartent dynamiquement selon le nombre
+ * - onPlayCard : appelé au clic sur une carte (undefined = main passive/lecture seule)
+ */
 export default function Hand({ cards = [], onPlayCard }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
 

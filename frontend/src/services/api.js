@@ -1,7 +1,16 @@
-const BASE_URL = `${import.meta.env.VITE_API_URL ?? ''}/api/games`;
-const PING_URL  = `${BASE_URL}/ping`;
-const TIMEOUT_MS = 120_000;
+/**
+ * Service API REST — toutes les communications HTTP avec le backend.
+ * Base URL : VITE_API_URL (env) + /api/games
+ */
 
+const BASE_URL  = `${import.meta.env.VITE_API_URL ?? ''}/api/games`;
+const PING_URL  = `${BASE_URL}/ping`;
+const TIMEOUT_MS = 120_000; // 2 min — délai généreux pour le réveil du serveur Render
+
+/**
+ * Wrapper fetch avec timeout automatique et gestion d'erreur HTTP.
+ * Retourne le JSON parsé ou null si la réponse est vide.
+ */
 async function request(url, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -23,11 +32,12 @@ async function request(url, options = {}) {
   }
 }
 
-/** Réveille le serveur silencieusement dès l'ouverture du site. */
+/** Réveille le serveur silencieusement dès l'ouverture du site (Render free tier). */
 export function ping() {
   fetch(PING_URL).catch(() => {});
 }
 
+/** Crée une nouvelle partie. Retourne { gameId }. */
 export function createGame(maxPlayers, gameMode = 'STANDARD') {
   return request(`${BASE_URL}/create`, {
     method: 'POST',
@@ -35,6 +45,7 @@ export function createGame(maxPlayers, gameMode = 'STANDARD') {
   });
 }
 
+/** Ajoute un joueur à la partie. Retourne l'état du lobby (liste des joueurs). */
 export function joinGame(gameId, playerName) {
   return request(`${BASE_URL}/${gameId}/join`, {
     method: 'POST',
@@ -42,6 +53,7 @@ export function joinGame(gameId, playerName) {
   });
 }
 
+/** Joue une carte. chosenColor requis pour Wild/+4. */
 export function playCard(gameId, playerId, cardId, chosenColor = null) {
   return request(`${BASE_URL}/${gameId}/play`, {
     method: 'POST',
@@ -49,6 +61,7 @@ export function playCard(gameId, playerId, cardId, chosenColor = null) {
   });
 }
 
+/** Pioche une carte depuis le deck. */
 export function drawCard(gameId, playerId) {
   return request(`${BASE_URL}/${gameId}/draw`, {
     method: 'POST',
@@ -56,6 +69,7 @@ export function drawCard(gameId, playerId) {
   });
 }
 
+/** Lance la partie (hôte uniquement). Les places vides seront remplies par des bots. */
 export function startGame(gameId) {
   return request(`${BASE_URL}/${gameId}/start`, {
     method: 'POST',
@@ -63,6 +77,7 @@ export function startGame(gameId) {
   });
 }
 
+/** Quitte la partie. Un bot prend la place du joueur. */
 export function leaveGame(gameId, playerId) {
   return request(`${BASE_URL}/${gameId}/leave`, {
     method: 'POST',
@@ -71,20 +86,23 @@ export function leaveGame(gameId, playerId) {
 }
 
 /**
- * Récupère l'état courant d'une partie pour un joueur donné.
- * Requiert l'endpoint GET /api/games/{gameId}/state/{playerId} côté backend.
+ * Récupère l'état courant de la partie pour un joueur donné.
+ * Utilisé en reconnexion et en polling (tour d'un bot).
  */
 export function getGameState(gameId, playerId) {
   return request(`${BASE_URL}/${gameId}/state/${playerId}`);
 }
 
+/** Signale au backend le retour d'un joueur après fermeture d'onglet. */
 export function reconnectPlayer(gameId, playerId) {
   return request(`${BASE_URL}/${gameId}/reconnect/${playerId}`, { method: 'POST' });
 }
 
-// UNO et Contre-UNO utilisent le même endpoint.
-// Le backend décide : si l'appelant a 1 carte → UNO annoncé,
-// sinon → pénalité +2 sur les adversaires non protégés.
+/**
+ * Appel UNO / Contre-UNO — même endpoint, le backend décide :
+ * - Si l'appelant a 1 carte → UNO annoncé (protection)
+ * - Sinon → contre-UNO (+2 cartes sur les adversaires non protégés)
+ */
 export function callUno(gameId, playerId) {
   return request(`${BASE_URL}/${gameId}/uno`, {
     method: 'POST',
@@ -92,6 +110,7 @@ export function callUno(gameId, playerId) {
   });
 }
 
+/** Vote pour rejouer après la fin de la partie. La partie repart si tous les humains votent. */
 export function voteRematch(gameId, playerId) {
   return request(`${BASE_URL}/${gameId}/rematch`, {
     method: 'POST',

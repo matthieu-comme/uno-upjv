@@ -4,6 +4,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { leaveGame, voteRematch } from '../services/api';
 import { connectWebSocket, disconnectWebSocket } from '../services/websocket';
 
+/**
+ * Page de résultats de fin de partie.
+ * Affiche le classement, permet de voter pour rejouer.
+ *
+ * Appels serveur :
+ *   WS  /topic/game/{gameId}/{playerId} — écoute les votes rematch et l'expiration
+ *   POST /rematch                       — voter pour rejouer
+ *   POST /leave                         — quitter définitivement
+ */
 export default function EndPage() {
   const navigate   = useNavigate();
   const { gameId } = useParams();
@@ -40,6 +49,7 @@ export default function EndPage() {
 
   const rankEmoji = (i) => ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣'][i] ?? '💀';
 
+  // Démarre le compte à rebours de 30s vers le menu (déclenché au 1er vote rematch)
   function startCountdown() {
     if (intervalRef.current) return;
     let t = 30;
@@ -105,6 +115,7 @@ export default function EndPage() {
 
   // ─── Actions ─────────────────────────────────────────────────────────────────
 
+  // Vote pour rejouer : POST /rematch — optimistic lock local pour éviter le double-clic
   async function handleRematch() {
     if (hasVoted) return;
     setHasVoted(true);
@@ -115,6 +126,7 @@ export default function EndPage() {
     }
   }
 
+  // Quitte la partie : arrête le WS, POST /leave, retour au menu
   async function handleLeave() {
     if (hasLeftRef.current) return;
     hasLeftRef.current = true;

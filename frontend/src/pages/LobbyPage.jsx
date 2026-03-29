@@ -3,6 +3,14 @@ import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { connectWebSocket, disconnectWebSocket } from "../services/websocket";
 import { startGame, leaveGame } from "../services/api";
 
+/**
+ * Salle d'attente avant le démarrage de la partie.
+ * WebSocket : écoute les mises à jour de joueurs et le passage en IN_PROGRESS.
+ * Appels API :
+ *   POST /{gameId}/start       → lancer la partie
+ *   POST /{gameId}/leave       → quitter proprement
+ *   sendBeacon /{gameId}/leave → nettoyage si fermeture onglet
+ */
 export default function LobbyPage() {
   const { gameId } = useParams();
   const { state: navState } = useLocation();
@@ -26,6 +34,7 @@ export default function LobbyPage() {
     : 0;
 
   // ── WebSocket ──────────────────────────────────────────────────────────────
+  // S'abonne aux mises à jour : liste joueurs + démarrage automatique de la partie
   useEffect(() => {
     if (!gameId || !playerId) return;
 
@@ -50,7 +59,8 @@ export default function LobbyPage() {
     return () => disconnectWebSocket();
   }, [gameId, playerId, navigate, playerName]);
 
-  // ── Nettoyage si fermeture onglet / navigation navigateur ─────────────────
+  // ── Nettoyage fermeture onglet ─────────────────────────────────────────────
+  // sendBeacon est utilisé car fetch() ne fonctionne pas de façon fiable dans beforeunload
   useEffect(() => {
     function onUnload() {
       if (gameId && playerId && !hasLeftRef.current) {
@@ -65,6 +75,8 @@ export default function LobbyPage() {
   }, [gameId, playerId]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
+
+  // Quitte manuellement : POST /leave → retour au menu
   async function handleLeave() {
     if (hasLeftRef.current) return;
     hasLeftRef.current = true;
@@ -73,11 +85,13 @@ export default function LobbyPage() {
     navigate("/");
   }
 
+  // Affiche la confirmation bots si des places sont libres, sinon démarre directement
   async function handleStart() {
     if (botsNeeded > 0) { setShowBotConfirm(true); return; }
     await doStart();
   }
 
+  // Appel API : POST /{gameId}/start → le backend démarre et notifie via WS
   async function doStart() {
     setShowBotConfirm(false);
     setStarting(true);

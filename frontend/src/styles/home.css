@@ -465,25 +465,3 @@
   color: #a5d6a7;
 }
 
-/* =========================
-   PREVIEW LINKS
-========================= */
-
-.home-preview {
-  margin-top: 44px;
-  text-align: center;
-}
-
-.home-preview a {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.15);
-  text-decoration: none;
-  padding: 4px 10px;
-  border-radius: 6px;
-  letter-spacing: 0.5px;
-  transition: color 0.2s;
-}
-
-.home-preview a:hover {
-  color: rgba(255, 255, 255, 0.38);
-}

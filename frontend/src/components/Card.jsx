@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+
+// Couleurs CSS associées aux couleurs backend
 const colorMap = {
   red:    "#e53935",
   blue:   "#1e88e5",
@@ -6,7 +9,10 @@ const colorMap = {
   wild:   "#111",
 };
 
-/** Retourne le chemin de l'image si elle existe, sinon null (fallback CSS). */
+/**
+ * Retourne le chemin de l'image PNG de la carte.
+ * Retourne null si aucune image n'existe → fallback rendu CSS.
+ */
 function cardImagePath(card, faceDown) {
   if (faceDown) return '/cards/back.png';
   if (!card) return null;
@@ -16,20 +22,27 @@ function cardImagePath(card, faceDown) {
   if (value === '+2')      return `/cards/draw-two-${color}.png`;
   if (value === 'Skip')    return `/cards/skip-${color}.png`;
   if (value === 'Reverse') return `/cards/reverse-${color}.png`;
-  // cartes numérotées (0-9)
   if (/^\d$/.test(value))  return `/cards/${value}-${color}.png`;
   return null;
 }
 
-import { useEffect, useState } from "react";
-
+/**
+ * Affiche une carte UNO.
+ * - Utilise l'image PNG si disponible
+ * - Fallback CSS (cercle blanc + valeur texte) si l'image échoue
+ * - tintColor : teinte appliquée aux jokers dont la couleur a été choisie
+ */
 export default function Card({ card, faceDown = false, tintColor = null }) {
   const [imgError, setImgError] = useState(false);
   const rawPath = cardImagePath(card, faceDown);
-  useEffect(() => { setImgError(false); }, [rawPath]);
-  const imgPath = imgError ? null : rawPath;
 
-  const base = faceDown ? "#111" : (colorMap[card?.color] ?? "#222");
+  // Reset l'erreur image quand la carte change
+  useEffect(() => { setImgError(false); }, [rawPath]);
+
+  const imgPath = imgError ? null : rawPath;
+  const base    = faceDown ? "#111" : (colorMap[card?.color] ?? "#222");
+
+  // Fond dégradé pour les jokers avec couleur choisie
   const bg = (!faceDown && tintColor && card?.color === "wild")
     ? `linear-gradient(145deg, ${tintColor} 0%, #111 70%)`
     : base;
@@ -58,7 +71,7 @@ export default function Card({ card, faceDown = false, tintColor = null }) {
       title={faceDown ? "Carte" : `${card?.color} ${card?.value}`}
     >
       {imgPath ? (
-        /* ── Rendu image ── */
+        /* ── Rendu image PNG ── */
         <img
           src={imgPath}
           alt={faceDown ? "Carte" : `${card?.color} ${card?.value}`}
@@ -74,7 +87,7 @@ export default function Card({ card, faceDown = false, tintColor = null }) {
           onError={() => setImgError(true)}
         />
       ) : (
-        /* ── Rendu CSS (fallback numérotées) ── */
+        /* ── Fallback CSS (si image absente ou erreur) ── */
         <>
           <div style={{
             position: "absolute",
